@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 import os
 import pandas as pd
 import numpy as np
-from USACE_gaugeReader import readGauges as rg
+import usace_gauge_reader
+import dictUtilities
 
 np.set_printoptions(threshold=3000, edgeitems=500)
 
@@ -10,7 +11,7 @@ path = r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
 
 gauge_csv = r'{}\tables\FIRO_gaugeDict.csv'.format(path)
 gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-gauge_dict = Dict.csv_to_dict(source_file=gauge_csv, headers=gauge_headers)
+gauge_dict = dictUtilities.Dict.csv_to_dict(source_file=gauge_csv, headers=gauge_headers)
 
 os.chdir(path)
 dfDict = {}
