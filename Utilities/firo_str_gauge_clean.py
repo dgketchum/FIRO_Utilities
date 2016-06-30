@@ -1,20 +1,60 @@
+# ===============================================================================
+# Copyright 2016 dgketchum
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===============================================================================
+
 from datetime import datetime, timedelta
 import os
+
+# JIR best to use from pandas import ...
 import pandas as pd
+
+# JIR best to use from numpy import ...
 import numpy as np
-import usace_gauge_reader
-import dictUtilities
+
+# JIR import the USACEGaugeReader class
+from usace_gauge_reader import USACEGaugeReader
+# JIR import the CSVParser class
+from dictUtilities import CSVParser
 
 np.set_printoptions(threshold=3000, edgeitems=500)
 
-path = r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
+# JIR use os.path.join
+# JIR i think this should work on WINDOWS.
+home = os.path.expanduser('~')  # should be C:\Users\David
 
-gauge_csv = r'{}\tables\FIRO_gaugeDict.csv'.format(path)
+print 'home: {}'.format(home)
+
+path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
+path = 'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
+
+# JIR make a parser object from the CSVParser class (i.e instantiate)
+csv_parser = CSVParser()
+
+# gauge_csv = r'{}\tables\FIRO_gaugeDict.csv'.format(path)
+gauge_path = os.path.join(path, 'tables', 'FIRO_gaugeDict.csv')
 gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-gauge_dict = dictUtilities.Dict.csv_to_dict(source_file=gauge_csv, headers=gauge_headers)
+
+# JIR parse the source file
+gauge_dict = csv_parser.csv_to_dict(source_file=gauge_path, headers=gauge_headers)
 
 os.chdir(path)
 dfDict = {}
+
+# JIR make a reader object from the USACEGaugeReader class (i.e instantiate)
+gauge_reader = USACEGaugeReader()
+
 for (dirpath, dirnames, filenames) in os.walk(path):
 
     if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables']:
@@ -28,8 +68,8 @@ for (dirpath, dirnames, filenames) in os.walk(path):
     elif dirpath in [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Russian River at Cloverdale',
                      r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\COY - Coyote']:
 
-
-        rg.read_usace_gauge(dirpath, filenames)
+        # JIR use the gauge_reader object to reader input files
+        data = gauge_reader.read_usace_gauge(dirpath, filenames)
 
         q_recs = []
         s_recs = []
@@ -51,26 +91,26 @@ for (dirpath, dirnames, filenames) in os.walk(path):
                         for xx in range(0, 24):
                             if line[xx + 3] not in ['m', 'm\n']:
                                 day = datetime.strptime(line[2], '%Y%m%d')
-                                q_recs.append([day + timedelta(hours=xx),  float(line[xx + 3])])
+                                q_recs.append([day + timedelta(hours=xx), float(line[xx + 3])])
 
                     # '1' is river stage, '6' reservoir stage
                     if line[0] in ['CLV', 'COY'] and line[1] in ['1', '6']:
                         for xx in range(0, 24):
                             if line[xx + 3] not in ['m', 'm\n']:
                                 day = datetime.strptime(line[2], '%Y%m%d')
-                                s_recs.append([day + timedelta(hours=xx),  float(line[xx + 3])])
+                                s_recs.append([day + timedelta(hours=xx), float(line[xx + 3])])
 
                     if line[0] == 'COY' and line[1] == '15':  # '15' is res. storage
                         for xx in range(0, 24):
                             if line[xx + 3] not in ['m', 'm\n']:
                                 day = datetime.strptime(line[2], '%Y%m%d')
-                                stor.append([day + timedelta(hours=xx),  float(line[xx + 3])])
+                                stor.append([day + timedelta(hours=xx), float(line[xx + 3])])
 
                     if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
                         for xx in range(0, 24):
                             if line[xx + 3] not in ['m', 'm\n']:
                                 day = datetime.strptime(line[2], '%Y%m%d')
-                                out_q.append([day + timedelta(hours=xx),  float(line[xx + 3])])
+                                out_q.append([day + timedelta(hours=xx), float(line[xx + 3])])
 
         q_arr = np.array([(element[0], element[1]) for element in q_recs]).squeeze()
         q_ser = pd.Series(q_arr[:, 1], index=q_arr[:, 0])
@@ -155,7 +195,7 @@ for (dirpath, dirnames, filenames) in os.walk(path):
 
                 old_base = base
 
-            print ' a', abc.count('a'), ' b', abc.count('b'), ' c', abc.count('c'), ' d', abc.count('d'), ' v',\
+            print ' a', abc.count('a'), ' b', abc.count('b'), ' c', abc.count('c'), ' d', abc.count('d'), ' v', \
                 abc.count('v'), ' w', abc.count('w'), ' x', abc.count('x'), ' y', abc.count('y'), ' z', abc.count('z')
         try:
             q_arr = np.array([(element[0], element[1], element[2]) for element in recs]).squeeze()
@@ -173,3 +213,4 @@ for (dirpath, dirnames, filenames) in os.walk(path):
         dfDict.update({base: q_df})
 
 panel = pd.Panel.from_dict(dfDict, orient='items')
+# ============= EOF =============================================
