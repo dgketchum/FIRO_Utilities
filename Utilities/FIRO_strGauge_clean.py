@@ -2,15 +2,16 @@ from datetime import datetime, timedelta
 import os
 import pandas as pd
 import numpy as np
-
+import dictUtilities
+from USACE_gaugeReader import readGauges as rg
 
 np.set_printoptions(threshold=3000, edgeitems=500)
 
 path = r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
+
 gauge_csv = r'{}\tables\FIRO_gaugeDict.csv'.format(path)
 gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-
-gauge_dict = csv_to_dict(gauge_csv, headers=gauge_headers)
+gauge_dict = dictUtilities.Dict.csv_to_dict(source_file=gauge_csv, headers=gauge_headers)
 
 os.chdir(path)
 dfDict = {}
@@ -26,6 +27,8 @@ for (dirpath, dirnames, filenames) in os.walk(path):
 
     elif dirpath in [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Russian River at Cloverdale',
                      r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\COY - Coyote']:
+
+        rg.read_usace_gauge(dirpath, filenames)
 
         q_recs = []
         s_recs = []
