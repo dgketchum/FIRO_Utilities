@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import os
 import pandas as pd
 import numpy as np
-import bat
 from USACE_gaugeReader import readGauges as rg
 
 np.set_printoptions(threshold=3000, edgeitems=500)
