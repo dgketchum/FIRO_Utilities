@@ -49,5 +49,13 @@ class readGauges:
                     if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
                         out_q.append(readGauges.fill_hours)
 
+        if not stor:
+            data = (q_recs, s_recs)
+            return data
+        else:
+            data = (q_recs, s_recs, stor, out_q)
+            return data
+
+
     def __str__(self):
         return 'Calculator class'
