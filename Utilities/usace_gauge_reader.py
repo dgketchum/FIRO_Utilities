@@ -23,22 +23,6 @@ class USACEGaugeReader:
     def __init__(self):
         pass
 
-    def read_table_rows(self, directory, filename):
-        fid = open(os.sep.join([directory, filename]))
-        print fid
-        lines = fid.readlines()
-        fid.close()
-        rows = [line.split(',') for line in lines]
-        return rows
-
-    def fill_hours(self, line):
-        for xx in range(0, 24):
-            if line[xx + 3] not in ['m', 'm\n']:
-                day = datetime.strptime(line[2], '%Y%m%d')
-                day_hour = day + timedelta(hours=xx)
-                line_data = ([day_hour, line[xx + 3]])
-                return line_data
-
     def read_usace_gauge(self, directory, file_names):
         q_recs = []
         s_recs = []
@@ -49,23 +33,23 @@ class USACEGaugeReader:
 
             if filename.endswith('.txt') and filename != 'readme.txt':
 
-                rows = self.read_table_rows(directory, filename)
+                rows = self._read_table_rows(directory, filename)
 
                 for line in rows:
 
                     # '20'  discharge, '76' reservoir inflow
                     if line[0] in ['CLV', 'COY'] and line[1] in ['20', '76']:
-                        q_recs.append(self.fill_hours(line))
+                        q_recs.append(self._fill_hours(line))
 
                     # '1' is river stage, '6' reservoir stage
                     if line[0] in ['CLV', 'COY'] and line[1] in ['1', '6']:
-                        s_recs.append(self.fill_hours(line))
+                        s_recs.append(self._fill_hours(line))
 
                     if line[0] == 'COY' and line[1] == '15':  # '15' is res. storage
-                        stor.append(self.fill_hours(line))
+                        stor.append(self._fill_hours(line))
 
                     if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
-                        out_q.append(self.fill_hours(line))
+                        out_q.append(self._fill_hours(line))
 
         if not stor:
             data = (q_recs, s_recs)
@@ -73,6 +57,19 @@ class USACEGaugeReader:
         else:
             data = (q_recs, s_recs, stor, out_q)
             return data
+
+    # private
+    def _read_table_rows(self, directory, filename):
+        with open(os.path.join(directory, filename), 'r') as rfile:
+            return [line.split(',') for line in rfile]
+
+    def _fill_hours(self, line):
+        for xx in range(0, 24):
+            if line[xx + 3] not in ['m', 'm\n']:
+                day = datetime.strptime(line[2], '%Y%m%d')
+                day_hour = day + timedelta(hours=xx)
+                line_data = ([day_hour, line[xx + 3]])
+                return line_data
 
     def __str__(self):
         return 'Calculator class'
