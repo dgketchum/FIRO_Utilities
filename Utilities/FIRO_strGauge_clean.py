@@ -2,10 +2,31 @@ from datetime import datetime, timedelta
 import os
 import pandas as pd
 import numpy as np
+import csv
+from collections import defaultdict
 
 np.set_printoptions(threshold=3000, edgeitems=500)
 
 path = r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
+
+source_csv = '{}\FIRO_gaugeDict.csv'.format(path)
+projects = defaultdict(dict)
+headers = ['StationID', 'Name', 'Latitude', 'Longitude']
+with open(source_csv, 'rb') as fp:
+    fp.next()
+    reader = csv.DictReader(fp, fieldnames=headers, dialect='excel',
+                            skipinitialspace=True)
+    for rowdict in reader:
+        if x == 0:
+            next(fp)
+        if None in rowdict:
+            del rowdict[None]
+        station_ID = rowdict.pop("StationID")
+        name = rowdict.pop("Name")
+        projects[station_ID][name] = rowdict
+
+gauge_dict = dict(projects)
+
 os.chdir(path)
 dfDict = {}
 for (dirpath, dirnames, filenames) in os.walk(path):
@@ -118,14 +139,14 @@ for (dirpath, dirnames, filenames) in os.walk(path):
                                 except ValueError:
                                     recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
                                     abc.append('x')
-                                    print line, 'x'
+
                             else:
                                 try:
                                     recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3]])
                                     abc.append('c')
                                 except ValueError:
                                     abc.append('w')
-                                    print line, 'w'
+
                         else:
                             abc.append('y')
                             print line, 'y'
@@ -140,10 +161,9 @@ for (dirpath, dirnames, filenames) in os.walk(path):
                             except ValueError:
                                 recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
                                 abc.append('v')
-                                print line, 'v'
+
                         else:
                             abc.append('z')
-                            print line, 'z'
 
                 old_base = base
 
@@ -156,7 +176,7 @@ for (dirpath, dirnames, filenames) in os.walk(path):
         except IndexError:
             q_arr = np.array([(element[0], element[1]) for element in recs]).squeeze()
             q_df1 = pd.DataFrame(q_arr[:, 1], index=q_arr[:, 0],
-                                 columns=['Q_cfs', 'Stage_ft'])
+                                 columns=['Q_cfs'])
         grouped = q_df1.groupby(level=0)
         q_df = grouped.last()
         q_df.to_csv(r'{}\output\usgs_{}.csv'.format(path, base), sep=',', index_label='DateTime')
