@@ -23,7 +23,14 @@ class USACEGaugeReader:
     def __init__(self):
         pass
 
-    def read_usace_gauge(self, directory, file_names):
+    def read_usace_gauge(self, root, file_names):
+        """
+
+        :param root: root directory of input data
+        :param file_names: list of files to read
+        :return: 2-tuple or 4-tuple of lists
+
+        """
         q_recs = []
         s_recs = []
         out_q = []
@@ -33,7 +40,7 @@ class USACEGaugeReader:
 
             if filename.endswith('.txt') and filename != 'readme.txt':
 
-                rows = self._read_table_rows(directory, filename)
+                rows = self._read_table_rows(root, filename)
 
                 for line in rows:
 
@@ -59,12 +66,12 @@ class USACEGaugeReader:
             return data
 
     # private
-    def _read_table_rows(self, directory, filename):
-        with open(os.path.join(directory, filename), 'r') as rfile:
+    def _read_table_rows(self, root, name):
+        with open(os.path.join(root, name), 'r') as rfile:
             return [line.split(',') for line in rfile]
 
     def _fill_hours(self, line):
-        for xx in range(0, 24):
+        for xx in xrange(0, 24):
             if line[xx + 3] not in ['m', 'm\n']:
                 day = datetime.strptime(line[2], '%Y%m%d')
                 day_hour = day + timedelta(hours=xx)
