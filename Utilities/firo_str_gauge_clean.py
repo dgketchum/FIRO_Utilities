@@ -37,6 +37,7 @@ home = os.path.expanduser('~')  # should be C:\Users\David
 print 'home: {}'.format(home)
 
 path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
+
 path = 'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
 
 # JIR make a parser object from the CSVParser class (i.e instantiate)
@@ -47,7 +48,7 @@ gauge_path = os.path.join(path, 'tables', 'FIRO_gaugeDict.csv')
 gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
 
 # JIR parse the source file
-gauge_dict = csv_parser.csv_to_dict(source_file=gauge_path, headers=gauge_headers)
+gauge_dict = csv_parser.csv_to_dict(gauge_path, headers=gauge_headers)
 
 os.chdir(path)
 dfDict = {}
