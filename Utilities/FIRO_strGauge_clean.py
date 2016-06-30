@@ -8,31 +8,37 @@ from collections import defaultdict
 np.set_printoptions(threshold=3000, edgeitems=500)
 
 path = r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
+gauge_csv = r'{}\tables\FIRO_gaugeDict.csv'.format(path)
+gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
 
-source_csv = '{}\FIRO_gaugeDict.csv'.format(path)
-projects = defaultdict(dict)
-headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-with open(source_csv, 'rb') as fp:
-    fp.next()
-    reader = csv.DictReader(fp, fieldnames=headers, dialect='excel',
-                            skipinitialspace=True)
-    for rowdict in reader:
-        if x == 0:
-            next(fp)
-        if None in rowdict:
-            del rowdict[None]
-        station_ID = rowdict.pop("StationID")
-        name = rowdict.pop("Name")
-        projects[station_ID][name] = rowdict
 
-gauge_dict = dict(projects)
+def csv_to_dict(source_file, headers=None,  has_header=True):
+    project = defaultdict(dict)
+    with open(source_file, 'rb') as fp:
+        if has_header:
+            fp.next()
+        reader = csv.DictReader(fp, fieldnames=headers, dialect='excel',
+                                skipinitialspace=True)
+        for rowdict in reader:
+            if None in rowdict:
+                del rowdict[None]
+            station_ID = rowdict.pop("StationID")
+            name = rowdict.pop("Name")
+            project[station_ID][name] = rowdict
+    return dict(project)
+
+gauge_dict = csv_to_dict(gauge_csv, headers=gauge_headers)
 
 os.chdir(path)
 dfDict = {}
 for (dirpath, dirnames, filenames) in os.walk(path):
 
-    if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125']:
+    if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables']:
         print os.path.basename(dirpath), 'left off from data collection'
+        pass
+
+    elif not filenames:
+        print 'empty filelist in {}'.format(dirpath)
         pass
 
     elif dirpath in [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Russian River at Cloverdale',
@@ -105,10 +111,6 @@ for (dirpath, dirnames, filenames) in os.walk(path):
             clv_data.to_csv(r'{}\output\{}.csv'.format(path, base), sep=',', index_label='DateTime')
             dfDict.update({base: clv_data})
 
-    elif not filenames:
-        print 'empty filelist in {}'.format(dirpath)
-        pass
-
     else:
         print ''
         old_base = []
@@ -149,7 +151,6 @@ for (dirpath, dirnames, filenames) in os.walk(path):
 
                         else:
                             abc.append('y')
-                            print line, 'y'
 
                 else:
                     print 'continuing time series'
@@ -172,7 +173,7 @@ for (dirpath, dirnames, filenames) in os.walk(path):
         try:
             q_arr = np.array([(element[0], element[1], element[2]) for element in recs]).squeeze()
             q_df1 = pd.DataFrame(np.column_stack((q_arr[:, 1], q_arr[:, 2])), index=q_arr[:, 0],
-                             columns=['Q_cfs', 'Stage_ft'])
+                                 columns=['Q_cfs', 'Stage_ft'])
         except IndexError:
             q_arr = np.array([(element[0], element[1]) for element in recs]).squeeze()
             q_df1 = pd.DataFrame(q_arr[:, 1], index=q_arr[:, 0],
