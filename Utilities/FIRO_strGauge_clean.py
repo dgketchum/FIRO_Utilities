@@ -2,30 +2,13 @@ from datetime import datetime, timedelta
 import os
 import pandas as pd
 import numpy as np
-import csv
-from collections import defaultdict
+
 
 np.set_printoptions(threshold=3000, edgeitems=500)
 
 path = r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
 gauge_csv = r'{}\tables\FIRO_gaugeDict.csv'.format(path)
 gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-
-
-def csv_to_dict(source_file, headers=None,  has_header=True):
-    project = defaultdict(dict)
-    with open(source_file, 'rb') as fp:
-        if has_header:
-            fp.next()
-        reader = csv.DictReader(fp, fieldnames=headers, dialect='excel',
-                                skipinitialspace=True)
-        for rowdict in reader:
-            if None in rowdict:
-                del rowdict[None]
-            station_ID = rowdict.pop("StationID")
-            name = rowdict.pop("Name")
-            project[station_ID][name] = rowdict
-    return dict(project)
 
 gauge_dict = csv_to_dict(gauge_csv, headers=gauge_headers)
 

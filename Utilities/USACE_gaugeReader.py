@@ -1,15 +1,16 @@
 class readGauges:
 
     def __init__(self):
+        None
 
     def read_table_rows(self, directory, filename):
-            import os
-            fid = open(os.sep.join([directory, filename]))
-            print fid
-            lines = fid.readlines()
-            fid.close()
-            rows = [line.split(',') for line in lines]
-            return rows
+        import os
+        fid = open(os.sep.join([directory, filename]))
+        print fid
+        lines = fid.readlines()
+        fid.close()
+        rows = [line.split(',') for line in lines]
+        return rows
 
     def fill_hours(self, line):
         from datetime import datetime, timedelta
