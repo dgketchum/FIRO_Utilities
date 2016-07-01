@@ -16,19 +16,20 @@
 
 from datetime import datetime, timedelta
 import os
+from numpy import array, column_stack, transpose
 
 
-class USACEGaugeReader:
+class ReadOtherGauge:
 
     def __init__(self):
         pass
 
-    def read_usace_gauge(self, root, file_names):
+    def read_other_gauge(self, root, file_names):
         """
 
         :param root: root directory of input data
         :param file_names: list of files to read
-        :return: 2-tuple or 4-tuple of lists
+        :return: 2-tuple or 4-tuple of numpy arrays
 
         """
         q_recs = []
@@ -58,25 +59,34 @@ class USACEGaugeReader:
                     if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
                         out_q.append(self._fill_hours(line))
 
+        q_recs = [item for sublist in q_recs for item in sublist]
+        s_recs = [item for sublist in s_recs for item in sublist]
+
         if not stor:
-            data = (q_recs, s_recs)
-            return data
+            q_data, s_data = array(q_recs), array(s_recs)
+            # q_data, s_data = column_stack(q_data), column_stack(s_data)
+            # q_data, s_data = q_data.transpose(), s_data.transpose()
+            return q_data, s_data
         else:
-            data = (q_recs, s_recs, stor, out_q)
-            return data
+            stor = [item for sublist in stor for item in sublist]
+            out_q = [item for sublist in out_q for item in sublist]
+            q_data, s_data, stor_data, out_q_data = array(q_recs), array(s_recs), array(stor), array(out_q)
+            return q_data, s_data, stor_data, out_q_data
 
     # private
     def _read_table_rows(self, root, name):
         with open(os.path.join(root, name), 'r') as rfile:
+            rfile = [line.rstrip() for line in rfile]
             return [line.split(',') for line in rfile]
 
     def _fill_hours(self, line):
+        line_data = []
         for xx in xrange(0, 24):
             if line[xx + 3] not in ['m', 'm\n']:
                 day = datetime.strptime(line[2], '%Y%m%d')
                 day_hour = day + timedelta(hours=xx)
-                line_data = ([day_hour, line[xx + 3]])
-                return line_data
+                line_data.append([day_hour, line[xx + 3]])
+        return line_data
 
     def __str__(self):
         return 'Calculator class'

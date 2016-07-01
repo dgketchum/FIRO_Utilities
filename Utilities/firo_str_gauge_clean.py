@@ -13,48 +13,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===============================================================================
-
-from datetime import datetime, timedelta
+"""
+The purpose of this module is to read in a csv with names and geographic coordinates of stream gauging stations,
+and to read in the guage data. dgketchum 1 JUL 2016
+"""
 import os
-
-# JIR best to use from pandas import ...
-import pandas as pd
-
-# JIR best to use from numpy import ...
 import numpy as np
-
-# JIR import the USACEGaugeReader class
-from usace_gauge_reader import USACEGaugeReader
-# JIR import the CSVParser class
-from dictUtilities import CSVParser
+from pandas import Panel
+from Utilities.other_gauge_reader import ReadOtherGauge
+from Utilities.dictUtilities import CSVParser
+from Utilities.firo_pandas_utils import PanelManagement
+from Utilities.usgs_gauge_reader import ReadUSGSGauge
 
 np.set_printoptions(threshold=3000, edgeitems=500)
 
-# JIR use os.path.join
-# JIR i think this should work on WINDOWS.
-home = os.path.expanduser('~')  # should be C:\Users\David
-
+home = os.path.expanduser('~')
 print 'home: {}'.format(home)
-
 path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
 
-path = 'C:\Users\David\Documents\USACE\FIRO\stream_gages\test'
-
-# JIR make a parser object from the CSVParser class (i.e instantiate)
 csv_parser = CSVParser()
+other_gauge_reader = ReadOtherGauge()
+panel_generator = PanelManagement()
+usgs_gauge_reader = ReadUSGSGauge()
 
-# gauge_csv = r'{}\tables\FIRO_gaugeDict.csv'.format(path)
 gauge_path = os.path.join(path, 'tables', 'FIRO_gaugeDict.csv')
 gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-
-# JIR parse the source file
 gauge_dict = csv_parser.csv_to_dict(gauge_path, headers=gauge_headers)
 
 os.chdir(path)
-dfDict = {}
 
-# JIR make a reader object from the USACEGaugeReader class (i.e instantiate)
-gauge_reader = USACEGaugeReader()
+dfDict = {}
 
 for (dirpath, dirnames, filenames) in os.walk(path):
 
@@ -69,149 +57,34 @@ for (dirpath, dirnames, filenames) in os.walk(path):
     elif dirpath in [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Russian River at Cloverdale',
                      r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\COY - Coyote']:
 
-        # JIR use the gauge_reader object to reader input files
-        data = gauge_reader.read_usace_gauge(dirpath, filenames)
+        print dirpath
+        data = other_gauge_reader.read_other_gauge(dirpath, filenames)
+        other_panels = panel_generator.other_array_to_dataframe(data)
+        base = os.path.basename(dirpath)
 
-        q_recs = []
-        s_recs = []
-        out_q = []
-        stor = []
-
-        for filename in filenames:
-
-            if filename.endswith('.txt') and filename != 'readme.txt':
-                fid = open(os.sep.join([dirpath, filename]))
-                print fid
-                lines = fid.readlines()
-                fid.close()
-                rows = [line.split(',') for line in lines]
-                for line in rows:
-
-                    # '20'  discharge, '76' reservoir inflow
-                    if line[0] in ['CLV', 'COY'] and line[1] in ['20', '76']:
-                        for xx in range(0, 24):
-                            if line[xx + 3] not in ['m', 'm\n']:
-                                day = datetime.strptime(line[2], '%Y%m%d')
-                                q_recs.append([day + timedelta(hours=xx), float(line[xx + 3])])
-
-                    # '1' is river stage, '6' reservoir stage
-                    if line[0] in ['CLV', 'COY'] and line[1] in ['1', '6']:
-                        for xx in range(0, 24):
-                            if line[xx + 3] not in ['m', 'm\n']:
-                                day = datetime.strptime(line[2], '%Y%m%d')
-                                s_recs.append([day + timedelta(hours=xx), float(line[xx + 3])])
-
-                    if line[0] == 'COY' and line[1] == '15':  # '15' is res. storage
-                        for xx in range(0, 24):
-                            if line[xx + 3] not in ['m', 'm\n']:
-                                day = datetime.strptime(line[2], '%Y%m%d')
-                                stor.append([day + timedelta(hours=xx), float(line[xx + 3])])
-
-                    if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
-                        for xx in range(0, 24):
-                            if line[xx + 3] not in ['m', 'm\n']:
-                                day = datetime.strptime(line[2], '%Y%m%d')
-                                out_q.append([day + timedelta(hours=xx), float(line[xx + 3])])
-
-        q_arr = np.array([(element[0], element[1]) for element in q_recs]).squeeze()
-        q_ser = pd.Series(q_arr[:, 1], index=q_arr[:, 0])
-        s_arr = np.array([(element[0], element[1]) for element in s_recs]).squeeze()
-        s_ser = pd.Series(s_arr[:, 1], index=s_arr[:, 0])
-
-        if stor and out_q is not []:
-            stor_arr = np.array([(element[0], element[1]) for element in stor]).squeeze()
-            stor_ser = pd.Series(stor_arr[:, 1], index=stor_arr[:, 0])
-            out_q_arr = np.array([(element[0], element[1]) for element in out_q]).squeeze()
-            out_q_ser = pd.Series(out_q_arr[:, 1], index=out_q_arr[:, 0])
-            base = 'COYOTE'
-            cols = ['Qin_cfs', 'Qout_cfs', 'Storage_acft', 'Elev_ftAbove_CDEC']
-            coy_data = pd.concat([q_ser, out_q_ser, stor_ser, s_ser], join='outer', axis=1)
-
-            coy_data.columns = cols
-            coy_data.to_csv(r'{}\output\{}.csv'.format(path, base), sep=',', index_label='DateTime')
-            dfDict.update({base: coy_data})
-
+        if dfDict == {}:
+            dfDict.update({base: other_panels})
+            print dfDict
+            gauge_panels = Panel.from_dict(dfDict, orient='items')
         else:
-            base = 'CLOVERDALE'
-            clv_data = pd.concat([q_ser, s_ser], join='outer', axis=1)
-            cols = ['Q_cfs', 'Stage_ftAbove_CDEC']
-            clv_data.columns = cols
-            clv_data.to_csv(r'{}\output\{}.csv'.format(path, base), sep=',', index_label='DateTime')
-            dfDict.update({base: clv_data})
+            print other_panels
+            gauge_panels[base] = other_panels
+            print gauge_panels
 
     else:
+        base = os.path.basename(dirpath)
         print ''
-        old_base = []
-        recs = []
-        abc = []
-        for filename in filenames:
+        print dirpath
 
-            if filename.endswith('.txt') and filename != 'readme.txt':
-                fid = open(os.sep.join([dirpath, filename]))
-                print fid
-                base = os.path.basename(dirpath).replace('usgs ', '')
-                print 'base', base
-                lines = fid.readlines()
-                fid.close()
-                rows = [line.split('\t') for line in lines]
+        recs, check = usgs_gauge_reader.read_usgs_gauge(dirpath, filenames)
+        print check
 
-                if base != old_base:
-                    print 'first file'
-                    for line in rows:
-                        if line[0] in ['USGS', base]:
-                            if line[2] in ['PST', 'PDT']:
-                                recs.append([datetime.strptime(line[1], '%Y%m%d%H%M%S'), line[5]])
-                                abc.append('a')
-                            elif line[3] in ['PST', 'PDT']:
-                                try:
-                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
-                                    abc.append('b')
-                                except ValueError:
-                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
-                                    abc.append('x')
+        new_panel = panel_generator.usgs_array_to_dataframe(recs, base)
+        print new_panel
 
-                            else:
-                                try:
-                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3]])
-                                    abc.append('c')
-                                except ValueError:
-                                    abc.append('w')
+        gauge_panels[base] = new_panel
+        print gauge_panels
 
-                        else:
-                            abc.append('y')
 
-                else:
-                    print 'continuing time series'
-                    for line in rows:
-                        if line[0] in ['USGS', base]:
-                            try:
-                                recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
-                                abc.append('d')
-                            except ValueError:
-                                recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
-                                abc.append('v')
 
-                        else:
-                            abc.append('z')
-
-                old_base = base
-
-            print ' a', abc.count('a'), ' b', abc.count('b'), ' c', abc.count('c'), ' d', abc.count('d'), ' v', \
-                abc.count('v'), ' w', abc.count('w'), ' x', abc.count('x'), ' y', abc.count('y'), ' z', abc.count('z')
-        try:
-            q_arr = np.array([(element[0], element[1], element[2]) for element in recs]).squeeze()
-            q_df1 = pd.DataFrame(np.column_stack((q_arr[:, 1], q_arr[:, 2])), index=q_arr[:, 0],
-                                 columns=['Q_cfs', 'Stage_ft'])
-        except IndexError:
-            q_arr = np.array([(element[0], element[1]) for element in recs]).squeeze()
-            q_df1 = pd.DataFrame(q_arr[:, 1], index=q_arr[:, 0],
-                                 columns=['Q_cfs'])
-        grouped = q_df1.groupby(level=0)
-        q_df = grouped.last()
-        q_df.to_csv(r'{}\output\usgs_{}.csv'.format(path, base), sep=',', index_label='DateTime')
-        if not q_df.index.is_unique:
-            print 'non-unique indices in your df'
-        dfDict.update({base: q_df})
-
-panel = pd.Panel.from_dict(dfDict, orient='items')
 # ============= EOF =============================================
