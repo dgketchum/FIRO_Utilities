@@ -15,76 +15,89 @@
 # ===============================================================================
 """
 The purpose of this module is to read in a csv with names and geographic coordinates of stream gauging stations,
-and to read in the guage data. dgketchum 1 JUL 2016
+and to read in the guage data.
+
+this module provides (1) function -- gauge_clean.
+gauge_clean does all the work
+
+dgketchum 1 JUL 2016
 """
+
 import os
 import numpy as np
 from pandas import Panel
 from Utilities.other_gauge_reader import ReadOtherGauge
-from Utilities.dictUtilities import CSVParser
 from Utilities.firo_pandas_utils import PanelManagement
 from Utilities.usgs_gauge_reader import ReadUSGSGauge
 
-np.set_printoptions(threshold=3000, edgeitems=500)
 
-home = os.path.expanduser('~')
-print 'home: {}'.format(home)
-path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
+# np.set_printoptions(threshold=3000, edgeitems=500)
 
-csv_parser = CSVParser()
-other_gauge_reader = ReadOtherGauge()
-panel_generator = PanelManagement()
-usgs_gauge_reader = ReadUSGSGauge()
 
-gauge_path = os.path.join(path, 'tables', 'FIRO_gaugeDict.csv')
-gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-gauge_dict = csv_parser.csv_to_dict(gauge_path, headers=gauge_headers)
+def gauge_clean(root, alt_dirs):
+    """
+    describe what gauge_clean does
 
-os.chdir(path)
+    :param root:
+    :return:
+    """
 
-dfDict = {}
+    other_gauge_reader = ReadOtherGauge()
+    panel_generator = PanelManagement()
+    usgs_gauge_reader = ReadUSGSGauge()
 
-for (dirpath, dirnames, filenames) in os.walk(path):
+    # this serves no purpose. gauge_dict is never used subsequently
+    # gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
+    # csv_parser = CSVParser()
+    # gauge_dict = csv_parser.csv_to_dict(gauge_path, headers=gauge_headers)
 
-    if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables']:
-        print os.path.basename(dirpath), 'left off from data collection'
-        pass
+    gauge_panels = None
+    for (dirpath, dirnames, filenames) in os.walk(root):
 
-    elif not filenames:
-        print 'empty filelist in {}'.format(dirpath)
-        pass
+        if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables']:
+            print os.path.basename(dirpath), 'left off from data collection'
 
-    elif dirpath in [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Russian River at Cloverdale',
-                     r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\COY - Coyote']:
+        elif not filenames:
+            print 'empty filelist in {}'.format(dirpath)
 
-        print dirpath
-        data = other_gauge_reader.read_other_gauge(dirpath, filenames)
-        other_panels = panel_generator.other_array_to_dataframe(data)
-        base = os.path.basename(dirpath)
+        elif dirpath in alt_dirs:
 
-        if dfDict == {}:
-            dfDict.update({base: other_panels})
-            print dfDict
-            gauge_panels = Panel.from_dict(dfDict, orient='items')
+            print dirpath
+            data = other_gauge_reader.read_other_gauge(dirpath, filenames)
+            other_panels = panel_generator.other_array_to_dataframe(data)
+            base = os.path.basename(dirpath)
+
+            if not gauge_panels:
+                df = {base: other_panels}
+                print df
+                gauge_panels = Panel.from_dict(gauge_panels, orient='items')
+            else:
+                print other_panels
+                gauge_panels[base] = other_panels
+                print gauge_panels
+
         else:
-            print other_panels
-            gauge_panels[base] = other_panels
+            base = os.path.basename(dirpath)
+            print ''
+            print dirpath
+
+            recs, check = usgs_gauge_reader.read_usgs_gauge(dirpath, filenames)
+            print check
+
+            new_panel = panel_generator.usgs_array_to_dataframe(recs, base)
+            print new_panel
+
+            gauge_panels[base] = new_panel
             print gauge_panels
 
-    else:
-        base = os.path.basename(dirpath)
-        print ''
-        print dirpath
 
-        recs, check = usgs_gauge_reader.read_usgs_gauge(dirpath, filenames)
-        print check
-
-        new_panel = panel_generator.usgs_array_to_dataframe(recs, base)
-        print new_panel
-
-        gauge_panels[base] = new_panel
-        print gauge_panels
-
-
+if __name__ == '__main__':
+    home = os.path.expanduser('~')
+    print 'home: {}'.format(home)
+    path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
+    ad = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Russian River at Cloverdale',
+          r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\COY - Coyote']
+    # gpath = os.path.join(path, 'tables', 'FIRO_gaugeDict.csv')
+    gauge_clean(path, ad)
 
 # ============= EOF =============================================
