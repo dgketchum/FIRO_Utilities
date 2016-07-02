@@ -26,9 +26,9 @@ dgketchum 1 JUL 2016
 import os
 import numpy as np
 from pandas import Panel
-from Utilities.other_gauge_reader import ReadOtherGauge
+from Utilities.other_gauge_reader import OtherGaugeReader
 from Utilities.firo_pandas_utils import PanelManagement
-from Utilities.usgs_gauge_reader import ReadUSGSGauge
+from Utilities.usgs_gauge_reader import USGSGaugeReader
 
 
 # np.set_printoptions(threshold=3000, edgeitems=500)
@@ -42,9 +42,9 @@ def gauge_clean(root, alt_dirs):
     :return:
     """
 
-    other_gauge_reader = ReadOtherGauge()
+    other_gauge_reader = OtherGaugeReader()
     panel_generator = PanelManagement()
-    usgs_gauge_reader = ReadUSGSGauge()
+    usgs_gauge_reader = USGSGaugeReader()
 
     # this serves no purpose. gauge_dict is never used subsequently
     # gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
@@ -63,7 +63,7 @@ def gauge_clean(root, alt_dirs):
         elif dirpath in alt_dirs:
 
             print dirpath
-            data = other_gauge_reader.read_other_gauge(dirpath, filenames)
+            data = other_gauge_reader.read_gauge(dirpath, filenames)
             other_panels = panel_generator.other_array_to_dataframe(data)
             base = os.path.basename(dirpath)
 
@@ -81,7 +81,7 @@ def gauge_clean(root, alt_dirs):
             print ''
             print dirpath
 
-            recs, check = usgs_gauge_reader.read_usgs_gauge(dirpath, filenames)
+            recs, check = usgs_gauge_reader.read_gauge(dirpath, filenames)
             print check
 
             new_panel = panel_generator.usgs_array_to_dataframe(recs, base)

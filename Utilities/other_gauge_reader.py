@@ -17,14 +17,15 @@
 from datetime import datetime, timedelta
 import os
 from numpy import array, column_stack, transpose
+from gauge_reader import GaugeReader
 
 
-class ReadOtherGauge:
+class OtherGaugeReader(GaugeReader):
 
     def __init__(self):
         pass
 
-    def read_other_gauge(self, root, file_names):
+    def read_gauge(self, root, file_names):
         """
 
         :param root: root directory of input data
@@ -37,27 +38,21 @@ class ReadOtherGauge:
         out_q = []
         stor = []
 
-        for filename in file_names:
+        for rows in self._get_table_rows(root, file_names):
+            for line in rows:
+                # '20'  discharge, '76' reservoir inflow
+                if line[0] in ['CLV', 'COY'] and line[1] in ['20', '76']:
+                    q_recs.append(self._fill_hours(line))
 
-            if filename.endswith('.txt') and filename != 'readme.txt':
+                # '1' is river stage, '6' reservoir stage
+                if line[0] in ['CLV', 'COY'] and line[1] in ['1', '6']:
+                    s_recs.append(self._fill_hours(line))
 
-                rows = self._read_table_rows(root, filename)
+                if line[0] == 'COY' and line[1] == '15':  # '15' is res. storage
+                    stor.append(self._fill_hours(line))
 
-                for line in rows:
-
-                    # '20'  discharge, '76' reservoir inflow
-                    if line[0] in ['CLV', 'COY'] and line[1] in ['20', '76']:
-                        q_recs.append(self._fill_hours(line))
-
-                    # '1' is river stage, '6' reservoir stage
-                    if line[0] in ['CLV', 'COY'] and line[1] in ['1', '6']:
-                        s_recs.append(self._fill_hours(line))
-
-                    if line[0] == 'COY' and line[1] == '15':  # '15' is res. storage
-                        stor.append(self._fill_hours(line))
-
-                    if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
-                        out_q.append(self._fill_hours(line))
+                if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
+                    out_q.append(self._fill_hours(line))
 
         q_recs = [item for sublist in q_recs for item in sublist]
         s_recs = [item for sublist in s_recs for item in sublist]
@@ -74,11 +69,6 @@ class ReadOtherGauge:
             return q_data, s_data, stor_data, out_q_data
 
     # private
-    def _read_table_rows(self, root, name):
-        with open(os.path.join(root, name), 'r') as rfile:
-            rfile = [line.rstrip() for line in rfile]
-            return [line.split(',') for line in rfile]
-
     def _fill_hours(self, line):
         line_data = []
         for xx in xrange(0, 24):
@@ -87,8 +77,5 @@ class ReadOtherGauge:
                 day_hour = day + timedelta(hours=xx)
                 line_data.append([day_hour, line[xx + 3]])
         return line_data
-
-    def __str__(self):
-        return 'Calculator class'
 
 # ============= EOF =============================================
