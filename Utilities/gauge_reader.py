@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 import os
 from numpy import array, column_stack, transpose
 
+
 # parent
 class GaugeReader:
     def __init__(self):
@@ -156,10 +157,7 @@ class USGSGaugeReader(GaugeReader):
 
             old_base = base
 
-        abc = array(['a: {}'.format(abc.count('a')), 'b: {}'.format(abc.count('b')), 'c: {}'.format(abc.count('c')),
-                     'd: {}'.format(abc.count('d')), 'e: {}'.format(abc.count('e')), 'f: {}'.format(abc.count('f')),
-                     'x: {}'.format(abc.count('x')), 'y: {}'.format(abc.count('y')), 'z: {}'.format(abc.count('z'))])
-
-        return recs, abc
+        nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'abcdefxyz'])
+        return recs, nabc
 
 # ============= EOF =============================================
