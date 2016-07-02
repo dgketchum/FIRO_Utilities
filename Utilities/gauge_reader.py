@@ -22,6 +22,28 @@ from numpy import array, column_stack, transpose
 class GaugeReader:
 
     _comma_delimiter = ','
+
+    def __init__(self):
+        pass
+
+    def read_gauge(self, root, filenames):
+        raise NotImplementedError
+
+    # private
+    def _read_gauge(self, root, filenames):
+        raise NotImplementedError
+
+    def _read_table_rows(self, root, name):
+        with open(os.path.join(root, name), 'r') as rfile:
+            print 'comma delimited file'
+            return [line.rstrip().split(self._comma_delimiter) for line in rfile]
+
+    def _get_table_rows(self, root, fns):
+        return (self._read_table_rows(root, fi) for fi in fns if fi.endswith('.txt') and fi != 'readme.txt')
+
+
+class USGSGaugeReader:
+
     _tab_delimiter = '\t'
 
     def __init__(self):
@@ -36,14 +58,9 @@ class GaugeReader:
 
     def _read_table_rows(self, root, name):
         with open(os.path.join(root, name), 'r') as rfile:
-            try:
-                print 'comma delimited file'
-                return [line.rstrip().split(self._comma_delimiter) for line in rfile]
-            except ValueError:
-                print 'tab delimited file'
-                return [line.rstrip().split(self._tab_delimiter) for line in rfile]
+            print 'tab delimited file'
+            return [line.rstrip().split(self._tab_delimiter) for line in rfile]
 
     def _get_table_rows(self, root, fns):
         return (self._read_table_rows(root, fi) for fi in fns if fi.endswith('.txt') and fi != 'readme.txt')
-
 # ============= EOF =============================================
