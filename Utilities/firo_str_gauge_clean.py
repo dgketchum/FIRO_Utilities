@@ -26,9 +26,8 @@ dgketchum 1 JUL 2016
 import os
 import numpy as np
 from Utilities.dictUtilities import CSVParser
-from Utilities.other_gauge_reader import OtherGaugeReader
+from Utilities.gauge_reader import OtherGaugeReader, USGSGaugeReader
 from Utilities.firo_pandas_utils import DataframeManagement
-from Utilities.usgs_gauge_reader import USGSGaugeReader
 from Utilities.firo_gauge_plotter import PlotGauges
 
 
