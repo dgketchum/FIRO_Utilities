@@ -59,8 +59,8 @@ class OtherGaugeReader(GaugeReader):
 
         if not stor:
             q_data, s_data = array(q_recs), array(s_recs)
-            # q_data, s_data = column_stack(q_data), column_stack(s_data)
-            # q_data, s_data = q_data.transpose(), s_data.transpose()
+            q_data, s_data = column_stack(q_data), column_stack(s_data)
+            q_data, s_data = q_data.transpose(), s_data.transpose()
             return q_data, s_data
         else:
             stor = [item for sublist in stor for item in sublist]

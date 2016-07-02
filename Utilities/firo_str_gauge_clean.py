@@ -25,33 +25,35 @@ dgketchum 1 JUL 2016
 
 import os
 import numpy as np
-from pandas import Panel
-from Utilities.other_gauge_reader import OtherGaugeReader
-from Utilities.firo_pandas_utils import PanelManagement
-from Utilities.usgs_gauge_reader import USGSGaugeReader
+from Utilities.dictUtilities import CSVParser
+from Utilities.other_gauge_reader import ReadOtherGauge
+from Utilities.firo_pandas_utils import DataframeManagement
+from Utilities.usgs_gauge_reader import ReadUSGSGauge
+from Utilities.firo_gauge_plotter import PlotGauges
 
 
-# np.set_printoptions(threshold=3000, edgeitems=500)
+np.set_printoptions(threshold=3000, edgeitems=500)
 
 
-def gauge_clean(root, alt_dirs):
+def gauge_clean(root, alt_dirs, gpath):
     """
     describe what gauge_clean does
 
+    :param alt_dirs:
     :param root:
     :return:
     """
 
-    other_gauge_reader = OtherGaugeReader()
-    panel_generator = PanelManagement()
-    usgs_gauge_reader = USGSGaugeReader()
+    other_gauge_reader = ReadOtherGauge()
+    df_generator = DataframeManagement()
+    usgs_gauge_reader = ReadUSGSGauge()
+    gauge_plotter = PlotGauges()
+    csv_parser = CSVParser()
 
-    # this serves no purpose. gauge_dict is never used subsequently
-    # gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
-    # csv_parser = CSVParser()
-    # gauge_dict = csv_parser.csv_to_dict(gauge_path, headers=gauge_headers)
+    gauge_headers = ['StationID', 'Name', 'Latitude', 'Longitude']
+    gauge_dict = csv_parser.csv_to_dict(gpath, headers=gauge_headers)
 
-    gauge_panels = None
+    df_dict = {}
     for (dirpath, dirnames, filenames) in os.walk(root):
 
         if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables']:
@@ -63,41 +65,47 @@ def gauge_clean(root, alt_dirs):
         elif dirpath in alt_dirs:
 
             print dirpath
-            data = other_gauge_reader.read_gauge(dirpath, filenames)
-            other_panels = panel_generator.other_array_to_dataframe(data)
+            data = other_gauge_reader.read_other_gauge(dirpath, filenames)
+            other_panels = df_generator.other_array_to_dataframe(data)
             base = os.path.basename(dirpath)
 
-            if not gauge_panels:
-                df = {base: other_panels}
-                print df
-                gauge_panels = Panel.from_dict(gauge_panels, orient='items')
+            if not df_dict:
+                df_dict.update({base: other_panels})
             else:
-                print other_panels
-                gauge_panels[base] = other_panels
-                print gauge_panels
+                df_dict.update({base: other_panels})
+            print df_dict
 
         else:
-            base = os.path.basename(dirpath)
+            base = os.path.basename(dirpath).replace('usgs ', '')
+            if base == 'observations':
+                parent = os.path.abspath(os.path.join(dirpath, os.pardir))
+                base = os.path.basename(parent).replace('usgs ', '')
             print ''
+            print base
             print dirpath
 
             recs, check = usgs_gauge_reader.read_gauge(dirpath, filenames)
             print check
 
-            new_panel = panel_generator.usgs_array_to_dataframe(recs, base)
-            print new_panel
+            new_df = df_generator.usgs_array_to_dataframe(recs, base)
+            df_dict.update({base: new_df})
+            print new_df
 
-            gauge_panels[base] = new_panel
-            print gauge_panels
+    clean_guage_dfs = df_generator.clean_dataframe(df_dict)
 
+    gauge_plotter.plot_discharge(clean_guage_dfs)
+
+    def data_to_shapefile(gauge_dict):
+        pass
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
-    ad = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Russian River at Cloverdale',
+    root = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
+    ad = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Cloverdale',
           r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\COY - Coyote']
-    # gpath = os.path.join(path, 'tables', 'FIRO_gaugeDict.csv')
-    gauge_clean(path, ad)
+    alt_dirs = ad
+    gpath = os.path.join(root, 'tables', 'FIRO_gaugeDict.csv')
+    gauge_clean(root, ad, gpath)
 
 # ============= EOF =============================================
