@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import os
 from numpy import array, column_stack, transpose
 
-
+# parent
 class GaugeReader:
     def __init__(self):
         self._delimiter = ','
@@ -28,12 +28,17 @@ class GaugeReader:
 
     def _read_table_rows(self, root, name):
         with open(os.path.join(root, name), 'r') as rfile:
+
+            # if self is a GaugeReader or OtherGaugeReader then self._delimiter == ','
+            # if self is a USGSGaugeReader self._delimiter = '\t'
+
             return [line.rstrip().split(self._delimiter) for line in rfile]
 
     def _get_table_rows(self, root, fns):
-        return (self._read_table_rows(root, fi) for fi in fns if fi.endswith('.txt') and fi != 'readme.txt')
+        return [self._read_table_rows(root, fi) for fi in fns if fi.endswith('.txt') and fi != 'readme.txt']
 
 
+# child
 class OtherGaugeReader(GaugeReader):
     def read_gauge(self, root, file_names):
         """
@@ -89,8 +94,12 @@ class OtherGaugeReader(GaugeReader):
         return line_data
 
 
+# child I inherit attributes and methods from GaugeReader
 class USGSGaugeReader(GaugeReader):
     def __init__(self):
+
+        # my parent uses ',' as a delimiter
+        # I want to use tabs!
         self._delimiter = '\t'
 
     def read_gauge(self, root, filenames):
