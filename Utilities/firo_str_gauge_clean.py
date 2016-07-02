@@ -26,9 +26,9 @@ dgketchum 1 JUL 2016
 import os
 import numpy as np
 from Utilities.dictUtilities import CSVParser
-from Utilities.other_gauge_reader import ReadOtherGauge
+from Utilities.other_gauge_reader import OtherGaugeReader
 from Utilities.firo_pandas_utils import DataframeManagement
-from Utilities.usgs_gauge_reader import ReadUSGSGauge
+from Utilities.usgs_gauge_reader import USGSGaugeReader
 from Utilities.firo_gauge_plotter import PlotGauges
 
 
@@ -44,9 +44,9 @@ def gauge_clean(root, alt_dirs, gpath):
     :return:
     """
 
-    other_gauge_reader = ReadOtherGauge()
+    other_gauge_reader = OtherGaugeReader()
     df_generator = DataframeManagement()
-    usgs_gauge_reader = ReadUSGSGauge()
+    usgs_gauge_reader = USGSGaugeReader()
     gauge_plotter = PlotGauges()
     csv_parser = CSVParser()
 
@@ -63,17 +63,17 @@ def gauge_clean(root, alt_dirs, gpath):
             print 'empty filelist in {}'.format(dirpath)
 
         elif dirpath in alt_dirs:
-
-            print dirpath
-            data = other_gauge_reader.read_other_gauge(dirpath, filenames)
-            other_panels = df_generator.other_array_to_dataframe(data)
-            base = os.path.basename(dirpath)
-
-            if not df_dict:
-                df_dict.update({base: other_panels})
-            else:
-                df_dict.update({base: other_panels})
-            print df_dict
+            pass
+            # print dirpath
+            # data = other_gauge_reader.read_gauge(dirpath, file_names=filenames)
+            # other_panels = df_generator.other_array_to_dataframe(data)
+            # base = os.path.basename(dirpath)
+            #
+            # if not df_dict:
+            #     df_dict.update({base: other_panels})
+            # else:
+            #     df_dict.update({base: other_panels})
+            # print df_dict
 
         else:
             base = os.path.basename(dirpath).replace('usgs ', '')
@@ -84,9 +84,10 @@ def gauge_clean(root, alt_dirs, gpath):
             print base
             print dirpath
 
-            recs, check = usgs_gauge_reader.read_gauge(dirpath, filenames)
+            recs, check = usgs_gauge_reader.read_gauge(dirpath, file_names=filenames)
             print check
 
+            print recs
             new_df = df_generator.usgs_array_to_dataframe(recs, base)
             df_dict.update({base: new_df})
             print new_df

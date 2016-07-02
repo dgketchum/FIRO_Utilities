@@ -20,7 +20,9 @@ from numpy import array, column_stack, transpose
 
 
 class GaugeReader:
-    _delimiter = ','
+
+    _comma_delimiter = ','
+    _tab_delimiter = '\t'
 
     def __init__(self):
         pass
@@ -34,7 +36,12 @@ class GaugeReader:
 
     def _read_table_rows(self, root, name):
         with open(os.path.join(root, name), 'r') as rfile:
-            return (line.rstrip().split(self._delimiter) for line in rfile)
+            try:
+                print 'comma delimited file'
+                return [line.rstrip().split(self._comma_delimiter) for line in rfile]
+            except ValueError:
+                print 'tab delimited file'
+                return [line.rstrip().split(self._tab_delimiter) for line in rfile]
 
     def _get_table_rows(self, root, fns):
         return (self._read_table_rows(root, fi) for fi in fns if fi.endswith('.txt') and fi != 'readme.txt')

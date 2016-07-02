@@ -42,24 +42,31 @@ class USGSGaugeReader(GaugeReader):
             if base != old_base:
                 # print 'first file'
                 for line in rows:
+                    print type(line[0])
+                    print line[0]
                     if line[0] in ['USGS', base]:
+                        print 'true'
                         if line[2] in ['PST', 'PDT']:
                             recs.append([datetime.strptime(line[1], '%Y%m%d%H%M%S'), line[5]])
-                            abc.append('a')
                         elif line[3] in ['PST', 'PDT']:
                             try:
                                 recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
-                                abc.append('b')
+                                abc.append('a')
                             except ValueError:
                                 recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
-                                abc.append('x')
+                                abc.append('b')
 
                         else:
                             try:
                                 recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3]])
                                 abc.append('c')
                             except ValueError:
-                                abc.append('w')
+
+                                try:
+                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3]])
+                                    abc.append('d')
+                                except ValueError:
+                                    abc.append('x')
 
                     else:
                         abc.append('y')
@@ -70,10 +77,10 @@ class USGSGaugeReader(GaugeReader):
                     if line[0] in ['USGS', base]:
                         try:
                             recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
-                            abc.append('d')
+                            abc.append('e')
                         except ValueError:
                             recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
-                            abc.append('v')
+                            abc.append('f')
 
                     else:
                         abc.append('z')
@@ -81,7 +88,7 @@ class USGSGaugeReader(GaugeReader):
             old_base = base
 
         abc = array(['a: {}'.format(abc.count('a')), 'b: {}'.format(abc.count('b')), 'c: {}'.format(abc.count('c')),
-                     'd: {}'.format(abc.count('d')), 'v: {}'.format(abc.count('v')), 'w: {}'.format(abc.count('w')),
+                     'd: {}'.format(abc.count('d')), 'e: {}'.format(abc.count('e')), 'f: {}'.format(abc.count('f')),
                      'x: {}'.format(abc.count('x')), 'y: {}'.format(abc.count('y')), 'z: {}'.format(abc.count('z'))])
 
         return recs, abc
