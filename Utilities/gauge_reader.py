@@ -20,7 +20,7 @@ from numpy import array, column_stack
 
 
 # parent
-class GaugeReader:
+class GaugeReader(object):
     def __init__(self):
         self._delimiter = ','
 
@@ -99,7 +99,11 @@ class OtherGaugeReader(GaugeReader):
 class USGSGaugeReader(GaugeReader):
 
     def __init__(self):
-        GaugeReader.__init__(self)
+        # not sure why you are calling the super __init__
+        # all it does is set the delimiter to ,
+        # which you immediately overwrite
+        # but maybe you are thinking in the future GaugeReader.__init__ will do more
+        super(USGSGaugeReader, self).__init__()
         self._delimiter = '\t'
 
     def read_gauge(self, root, filenames):
