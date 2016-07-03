@@ -85,9 +85,7 @@ class DataframeManagement:
             q_df1.columns = cols
 
         except IndexError:
-            print data
             q_arr = array([(element[0], element[1]) for element in data]).squeeze()
-            print q_arr
             q_ser = Series(q_arr[:, 1], index=q_arr[:, 0])
             print q_ser
             nan_ser = Series(nan, index=q_arr[:, 0])

@@ -62,16 +62,15 @@ def gauge_clean(root, alt_dirs, gpath):
             print 'empty filelist in {}'.format(dirpath)
 
         elif dirpath in alt_dirs:
-            pass
-            # print dirpath
-            # data = other_gauge_reader.read_gauge(dirpath, file_names=filenames)
-            # other_panels = df_generator.other_array_to_dataframe(data)
-            # base = os.path.basename(dirpath)
-            #
-            # if not df_dict:
-            #     df_dict.update({base: other_panels})
-            # else:
-            #     df_dict.update({base: other_panels})
+            print dirpath
+            data = other_gauge_reader.read_gauge(dirpath, file_names=filenames)
+            other_panels = df_generator.other_array_to_dataframe(data)
+            base = os.path.basename(dirpath)
+
+            if not df_dict:
+                df_dict.update({base: other_panels})
+            else:
+                df_dict.update({base: other_panels})
             # print df_dict
 
         else:
@@ -83,17 +82,18 @@ def gauge_clean(root, alt_dirs, gpath):
             print base
             print dirpath
 
-            recs, check = usgs_gauge_reader.read_gauge(dirpath, file_names=filenames)
+            recs, check = usgs_gauge_reader.read_gauge(dirpath, filenames=filenames)
             print check
-
-            print recs
             new_df = df_generator.usgs_array_to_dataframe(recs, base)
             df_dict.update({base: new_df})
-            print new_df
+            # print new_df
 
     clean_guage_dfs = df_generator.clean_dataframe(df_dict)
+    # print clean_guage_dfs
 
-    gauge_plotter.plot_discharge(clean_guage_dfs)
+    # gauge_plotter.plot_discharge(clean_guage_dfs, save_figure=True, save_path=fig_save)
+
+    gauge_plotter.plot_time_coverage_bar(clean_guage_dfs, fig_save, save_figure=True)
 
     def data_to_shapefile(gauge_dict):
         pass
@@ -104,6 +104,7 @@ if __name__ == '__main__':
     root = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'test')
     ad = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\CLV - Cloverdale',
           r'C:\Users\David\Documents\USACE\FIRO\stream_gages\test\COY - Coyote']
+    fig_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'figures')
     alt_dirs = ad
     gpath = os.path.join(root, 'tables', 'FIRO_gaugeDict.csv')
     gauge_clean(root, ad, gpath)

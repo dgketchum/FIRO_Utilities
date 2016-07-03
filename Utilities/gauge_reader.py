@@ -16,7 +16,7 @@
 
 from datetime import datetime, timedelta
 import os
-from numpy import array, column_stack, transpose
+from numpy import array, column_stack
 
 
 # parent
@@ -97,13 +97,13 @@ class OtherGaugeReader(GaugeReader):
 
 # child I inherit attributes and methods from GaugeReader
 class USGSGaugeReader(GaugeReader):
-    def __init__(self):
 
-        # my parent uses ',' as a delimiter
-        # I want to use tabs!
+    def __init__(self):
+        GaugeReader.__init__(self)
         self._delimiter = '\t'
 
     def read_gauge(self, root, filenames):
+        start = datetime.now()
         old_base = []
         recs = []
         abc = []
@@ -112,10 +112,7 @@ class USGSGaugeReader(GaugeReader):
             if base != old_base:
                 # print 'first file'
                 for line in rows:
-                    print type(line[0])
-                    print line[0]
                     if line[0] in ['USGS', base]:
-                        print 'true'
                         if line[2] in ['PST', 'PDT']:
                             recs.append([datetime.strptime(line[1], '%Y%m%d%H%M%S'), line[5]])
                         elif line[3] in ['PST', 'PDT']:
@@ -156,6 +153,10 @@ class USGSGaugeReader(GaugeReader):
                         abc.append('z')
 
             old_base = base
+
+        end = datetime.now()
+        elapsed = end - start
+        print 'time for usgs read gauge on {} was {}'.format(base, elapsed)
 
         nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'abcdefxyz'])
         return recs, nabc
