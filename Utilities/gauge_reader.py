@@ -19,7 +19,7 @@ import os
 from numpy import array, column_stack
 
 
-# parent
+# parent class
 class GaugeReader(object):
     def __init__(self):
         self._delimiter = ','
@@ -39,21 +39,22 @@ class GaugeReader(object):
         return [self._read_table_rows(root, fi) for fi in fns if fi.endswith('.txt') and fi != 'readme.txt']
 
 
-# child
 class OtherGaugeReader(GaugeReader):
     def read_gauge(self, root, file_names):
-        """
+        """  Reads the alternate gauges (i.e. CA and USACE) located near (or at) L. Mendecino
 
         :param root: root directory of input data
         :param file_names: list of files to read
         :return: 2-tuple or 4-tuple of numpy arrays
 
         """
+        # initiate empty lists
         q_recs = []
         s_recs = []
         out_q = []
         stor = []
 
+        # read rows of CLV and COY-type data into lists (of daily lists)
         for rows in self._get_table_rows(root, file_names):
             for line in rows:
                 # '20'  discharge, '76' reservoir inflow
@@ -70,14 +71,17 @@ class OtherGaugeReader(GaugeReader):
                 if line[0] == 'COY' and line[1] == '23':  # '23' is res. outflow
                     out_q.append(self._fill_hours(line))
 
+        # transfor list of daily lists into one list
         q_recs = [item for sublist in q_recs for item in sublist]
         s_recs = [item for sublist in s_recs for item in sublist]
 
+        # no storage or out_q for CLV
         if not stor:
             q_data, s_data = array(q_recs), array(s_recs)
             q_data, s_data = column_stack(q_data), column_stack(s_data)
             q_data, s_data = q_data.transpose(), s_data.transpose()
             return q_data, s_data
+        # COY has all four fields
         else:
             stor = [item for sublist in stor for item in sublist]
             out_q = [item for sublist in out_q for item in sublist]
@@ -85,10 +89,11 @@ class OtherGaugeReader(GaugeReader):
             return q_data, s_data, stor_data, out_q_data
 
     # private
+    # fill hours runs through the 24 hours in each line of the CLV and COY-type data, returns list
     def _fill_hours(self, line):
         line_data = []
         for xx in xrange(0, 24):
-            if line[xx + 3] not in ['m', 'm\n']:
+            if line[xx + 3] not in ['m', 'm\n']:  # no-data is 'm', plus newline char at 24th hour
                 day = datetime.strptime(line[2], '%Y%m%d')
                 day_hour = day + timedelta(hours=xx)
                 line_data.append([day_hour, line[xx + 3]])
@@ -99,33 +104,50 @@ class OtherGaugeReader(GaugeReader):
 class USGSGaugeReader(GaugeReader):
 
     def __init__(self):
-        # not sure why you are calling the super __init__
-        # all it does is set the delimiter to ,
-        # which you immediately overwrite
-        # but maybe you are thinking in the future GaugeReader.__init__ will do more
+        # change delimiter to tab
         super(USGSGaugeReader, self).__init__()
         self._delimiter = '\t'
 
     def read_gauge(self, root, filenames):
-        start = datetime.now()
+        """  Reads the USGS gauges in and around FIRO watersheds (i.e. Russian River and trivs)
+
+        :param root: root directory of input data
+        :param filenames: list of files to read
+        :return: 2-tuple or 4-tuple of numpy arrays
+
+        """
+        start = datetime.now() # time process
+        # initiate lists
         old_base = []
         recs = []
         abc = []
+        # read lines, skip header and descriptions
         for rows in self._get_table_rows(root, filenames):
+            if not rows:
+                print 'non rows'
+                return None
             base = os.path.basename(root).replace('usgs ', '')
             if base != old_base:
-                # print 'first file'
+                # find first file
+                print 'first file'
                 for line in rows:
+                    # use abc to count which read in format is used, be sure to check data to make not to write in
+                    # a quality flag code,
+                    # as of 7 JUL 16, all cases below are used, check new gauge files for conforming format
                     if line[0] in ['USGS', base]:
                         if line[2] in ['PST', 'PDT']:
                             recs.append([datetime.strptime(line[1], '%Y%m%d%H%M%S'), line[5]])
-                        elif line[3] in ['PST', 'PDT']:
-                            try:
-                                recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
-                                abc.append('a')
-                            except ValueError:
-                                recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
-                                abc.append('b')
+                        try:
+                            if line[3] in ['PST', 'PDT']:
+                                try:
+                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
+                                    abc.append('a')
+                                except ValueError:
+                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
+                                    abc.append('b')
+
+                        except IndexError:
+                            abc.append('v')
 
                         else:
                             try:
@@ -142,13 +164,16 @@ class USGSGaugeReader(GaugeReader):
                     else:
                         abc.append('y')
 
-            else:
-                # print 'continuing time series'
+            else: # if there are multiple files, continue reading onto the same list
+                print 'continuing time series'
                 for line in rows:
                     if line[0] in ['USGS', base]:
                         try:
                             recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
                             abc.append('e')
+                        except IndexError:
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
+                            abc.append('f')
                         except ValueError:
                             recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
                             abc.append('f')
@@ -160,9 +185,9 @@ class USGSGaugeReader(GaugeReader):
 
         end = datetime.now()
         elapsed = end - start
-        print 'time for usgs read gauge on {} was {}'.format(base, elapsed)
-
-        nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'abcdefxyz'])
-        return recs, nabc
+        if recs:
+            print 'time for usgs read gauge on {} was {}'.format(base, elapsed)
+            nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'abcdefvxyz'])
+            return recs, nabc
 
 # ============= EOF =============================================

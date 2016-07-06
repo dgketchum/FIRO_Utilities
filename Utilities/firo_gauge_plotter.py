@@ -16,13 +16,11 @@
 
 
 from matplotlib import pyplot as plt
-from numpy import count_nonzero, isnan, linspace
-from pandas import DataFrame, Series, to_numeric
+from numpy import count_nonzero, isnan, linspace, nan
+from pandas import DataFrame, Series, to_numeric, isnull
 
 
 class PlotGauges:
-    # hmm: where to put col_list I find myself using again
-    # global variable, then add it as an arg to all funtion calls
 
     def __init__(self):
         self._col_list = ['Q_cfs', 'Stage_ft', 'Qout_cfs', 'Storage_acft']
@@ -36,7 +34,7 @@ class PlotGauges:
         :param save_path: csv save location
         :param save_figure:
         :param save_format
-        :return: dict of data
+        :return: show and/or save hydrographs of various types (stream flow, stage, etc)
 
         """
         x = 0
@@ -46,43 +44,62 @@ class PlotGauges:
             plt.figure(x)
 
             for col in data[key]:
+                print col
                 ser = Series(data[key][col])
+                ser[isnull(ser)] = nan
                 if count_nonzero(isnan(ser)) != len(ser):
-                    self._setup_different_hydrographs(ser, col)
+                    self._setup_different_hydrographs(ser, col, key)
                     # plt.show()
                     if save_figure:
                         print 'saving'
                         plt.savefig('{}\{}_{}_hydroraph.{}'.format(save_path, key, col, save_format), dpi=500)
+                        plt.close()
                         print 'plot saved'
 
     def plot_time_coverage_bar(self, data, save_path=None, save_figure=False, save_format='png'):
+        """ Plot horizontal bar showing temporal coverage of stream gauges
 
-        yvals = self._col_list
+        :param data: 2-tuple or 4-tuple of numpy arrays
+        :param save_path: csv save location
+        :param save_figure:
+        :param save_format
+        :return: show and/or save plot
 
-        q_dict = {}
+        """
+
+        plt_dict = {}
         x = 0
         for key in data:
+            print key
+
             x += 1
             df = data[key].apply(to_numeric)
             s = df['Q_cfs']
-            s[s > 0] = x
-            q_dict.update({key: s})
-        cln_df = DataFrame(q_dict)
+            s[isnull(s)] = nan
+            s[s >= 0] = x
+            s[s < x] = nan
+            plt_dict.update({key: s})
+
+        cln_df = DataFrame(plt_dict)
         plt.plot(cln_df.index, cln_df, lw=20)
         plt.yticks(linspace(1, 5, 5), cln_df.keys(), rotation='horizontal')
-        plt.ylim(0, 6)
+        plt.ylim(0, len(cln_df.keys()) + 1)
 
         if save_figure:
-            plt.savefig('{}\{}__time_coverage.{}'.format(save_path, save_format, save_format), dpi=500)
+            plt.savefig('{}\Gauge_time_coverage.{}'.format(save_path, save_format), dpi=500)
             print 'saving barh, gauge time coverage to {}'.format(save_path)
-        # plt.show()
+            plt.close()
+            # plt.show()
 
-    def _setup_different_hydrographs(self, series, column):
+    def _setup_different_hydrographs(self, series, column, name):
 
         if column in self._col_list:
             pos = self._col_list.index(column)
             plt.plot(series)
-            plt.title('{} {}'.format(self._title_list[pos], self._col_list[pos]))
+            if pos in [2, 3]:
+                plt.title('{}'.format(self._title_list[pos]))
+            else:
+                plt.title('{} {}'.format(self._title_list[pos], name))
             plt.ylabel(self._desc_list[pos])
             plt.xlabel('Time')
 

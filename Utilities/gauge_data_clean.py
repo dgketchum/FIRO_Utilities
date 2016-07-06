@@ -32,9 +32,10 @@ class DataframeManagement:
         :return: dict of data
 
         """
+        # extract CLV COY data from passed tuple
         q_data = data[0]
         s_data = data[1]
-
+        # put data in pandas series, index with pandas Timestamp datetime
         q_ser = Series(q_data[:, 1], index=q_data[:, 0])
         s_ser = Series(s_data[:, 1], index=s_data[:, 0])
 
@@ -80,6 +81,7 @@ class DataframeManagement:
         try:
             # this if for the records that have both discharge and stage data
             # fill empty columns with NaN so all dataframes have same shape and keys (column headers)
+            # index with pandas Timestamp datetimes
             q_arr = array([(element[0], element[1], element[2]) for element in data]).squeeze()
             nan_ser = Series(nan, index=q_arr[:, 0])
             q_df1 = DataFrame(column_stack((q_arr[:, 1], q_arr[:, 2], nan_ser, nan_ser)), index=q_arr[:, 0],
@@ -88,7 +90,8 @@ class DataframeManagement:
 
         except IndexError:
             # records with only discharge data
-            # fill empy columns with NaN, use standard headers
+            # fill empyy columns with NaN, use standard headers
+            # index with pandas Timestamp datetimes
             q_arr = array([(element[0], element[1]) for element in data]).squeeze()
             q_ser = Series(q_arr[:, 1], index=q_arr[:, 0])
             print q_ser
@@ -192,9 +195,9 @@ class DataframeManagement:
                                     vals.append(val)
                                     x += 1
 
-                        series_mean = series.mean(skipna=True)
-                        print 'removed {} values'.format(y)
-                        print 'mean {} without outliers: {}'.format(series.name, series_mean)
+                            series_mean = series.mean(skipna=True)
+                            print 'removed {} values'.format(y)
+                            print 'mean {} without outliers: {}'.format(series.name, series_mean)
 
                 elif key == 'COY - Coyote':
                     if series.name == 'Stage_ft':
@@ -223,9 +226,9 @@ class DataframeManagement:
                                         y += 1
                                     x += 1
 
-                        series_mean = series.mean(skipna=True)
-                        print 'removed {} values'.format(y)
-                        print 'mean {} without outliers: {}'.format(series.name, series_mean)
+                            series_mean = series.mean(skipna=True)
+                            print 'removed {} values'.format(y)
+                            print 'mean {} without outliers: {}'.format(series.name, series_mean)
 
                     if series.name == 'Qout_cfs':
                         if impose_rolling_condition:
@@ -244,9 +247,9 @@ class DataframeManagement:
                                         y += 1
                                     x += 1
 
-                        series_mean = series.mean(skipna=True)
-                        print 'removed {} values'.format(y)
-                        print 'mean {} without outliers: {}'.format(series.name, series_mean)
+                            series_mean = series.mean(skipna=True)
+                            print 'removed {} values'.format(y)
+                            print 'mean {} without outliers: {}'.format(series.name, series_mean)
 
                 # series[series > series_mean + 3 * series_std] = nan
 
@@ -267,9 +270,9 @@ class DataframeManagement:
                                     y += 1
                                 x += 1
 
-                    series_mean = series.mean(skipna=True)
-                    print 'removed {} values'.format(y)
-                    print 'mean {} without outliers: {}'.format(series.name, series_mean)
+                        series_mean = series.mean(skipna=True)
+                        print 'removed {} values'.format(y)
+                        print 'mean {} without outliers: {}'.format(series.name, series_mean)
 
             cln_dfs.update({key: df})
 
