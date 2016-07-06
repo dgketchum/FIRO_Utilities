@@ -239,7 +239,7 @@ class DataframeManagement:
 
                 if series.name == 'Q_cfs':
                     if impose_rolling_condition:
-                       self._impose_rolling_condition(series, lambda vi, av: vi > 100*av)
+                        self._impose_rolling_condition(series, lambda vi, av: vi > 100*av)
 
             cln_dfs.update({key: df})
 
@@ -252,28 +252,28 @@ class DataframeManagement:
 
     def _impose_rolling_condition(self, series, predicate):
 
-            # x = 0
-            remove_cnt = 0
-            vals = self._value_list(series)
-            if vals:
-                for ind, val in series.iteritems():
-                    # if vals:
-                    # consider this condition and adjust it based on hyrdologic knowledge!
-                    # if val > 100 * (sum(vals) / len(vals)):
-                    vavg = sum(vals) / len(vals)
-                    if predicate(val, vavg):
-                        print 'outlier at {} of value:  {}'.format(ind, val)
-                        print 'value among previous values of: {}'.format(vals)
-                        series[ind] = nan
-                        if val != nan:
-                            vals = vals[1:20]
-                            vals.append(val)
-                        remove_cnt += 1
-                        # x += 1
+        # x = 0
+        remove_cnt = 0
+        vals = self._value_list(series)
+        if vals:
+            for ind, val in series.iteritems():
+                # if vals:
+                # consider this condition and adjust it based on hyrdologic knowledge!
+                # if val > 100 * (sum(vals) / len(vals)):
+                vavg = sum(vals) / len(vals)
+                if predicate(val, vavg):
+                    print 'outlier at {} of value:  {}'.format(ind, val)
+                    print 'value among previous values of: {}'.format(vals)
+                    series[ind] = nan
+                    if val != nan:
+                        vals = vals[1:20]
+                        vals.append(val)
+                    remove_cnt += 1
+                    # x += 1
 
-            series_mean = series.mean(skipna=True)
-            print 'removed {} values'.format(remove_cnt)
-            print 'mean {} without outliers: {}'.format(series.name, series_mean)
+        series_mean = series.mean(skipna=True)
+        print 'removed {} values'.format(remove_cnt)
+        print 'mean {} without outliers: {}'.format(series.name, series_mean)
         # ------------- Original ---------------
         # this is FUNKY!!!
         #
