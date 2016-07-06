@@ -15,7 +15,8 @@
 # ===============================================================================
 
 from pandas import Series, concat, DataFrame, to_numeric, Timedelta, isnull
-from numpy import array, column_stack, nan, inf, isnan
+from numpy import array, column_stack, nan, count_nonzero
+from datetime import datetime
 
 
 class DataframeManagement:
@@ -210,36 +211,15 @@ class DataframeManagement:
                         # how fast can the stage change?
                         # there are some suspect, low values that current conditional leaves in the data
                         if impose_rolling_condition:
-                            self._impose_rolling_condition(series, lambda vi, av: vi< 0.9*av and vi < 705)
-                            # x = 0
-                            # y = 0
-                            # vals = self._value_list(series)
-                            # for ind, val in series.iteritems():
-                            #     if vals:
-                            #         # consider this condition and adjust it based on hyrdologic knowledge!
-                            #         if val < 0.9 * (sum(vals) / len(vals)) and val < 705:
-                            #             print 'outlier at {} of value:  {}'.format(ind, val)
-                            #             print 'value among previous values of: {}'.format(vals)
-                            #             if val != nan:
-                            #                 vals = vals[1:20]
-                            #                 vals.append(val)
-                            #             series[ind] = nan
-                            #             y += 1
-                            #         x += 1
-                            #
-                            # series_mean = series.mean(skipna=True)
-                            # print 'removed {} values'.format(y)
-                            # print 'mean {} without outliers: {}'.format(series.name, series_mean)
+                            self._impose_rolling_condition(series, lambda vi, av: vi < 0.9 * av and vi < 705)
 
                     if series.name == 'Qout_cfs':
                         if impose_rolling_condition:
-                            self._impose_rolling_condition(series, lambda vi, av: vi > 10*av)
-
-                # series[series > series_mean + 3 * series_std] = nan
+                            self._impose_rolling_condition(series, lambda vi, av: vi > 10 * av)
 
                 if series.name == 'Q_cfs':
                     if impose_rolling_condition:
-                       self._impose_rolling_condition(series, lambda vi, av: vi > 100*av)
+                       self._impose_rolling_condition(series, lambda vi, av: vi > 100 * av)
 
             cln_dfs.update({key: df})
 
@@ -249,6 +229,24 @@ class DataframeManagement:
                     df.to_csv(r'{}\Clean_{}.csv'.format(save_path, key), sep=',', index_label='DateTime')
 
         return cln_dfs
+
+    def save_cleaned_stats(self, cleaned_dataframe_dict, gauge_dict, save_path, save_cleaned_states=False):
+        """Find stats on data coverage and save to a csv
+
+        :param cleaned_dataframe_dict:
+        :param save_cleaned_states:
+        :param save_path:
+        :return:
+        """
+        df_dict = cleaned_dataframe_dict
+
+        for key in df_dict:
+            df = df_dict[key]
+            for series in df:
+                s = df[series]
+                start = datetime.strftime(s.index[1].to_datetime(), '%Y/%m/%d %H:%M')
+                end = datetime.strftime(s.index[-1].to_datetime(), '%Y/%m/%d %H:%M')
+                percnt_cov  = count_nonzero(s)/len(s) * 100
 
     def _impose_rolling_condition(self, series, predicate):
 
@@ -274,28 +272,6 @@ class DataframeManagement:
             series_mean = series.mean(skipna=True)
             print 'removed {} values'.format(remove_cnt)
             print 'mean {} without outliers: {}'.format(series.name, series_mean)
-        # ------------- Original ---------------
-        # this is FUNKY!!!
-        #
-        # x = 0
-        # y = 0
-        # vals = self._value_list(series)
-        # for ind, val in series.iteritems():
-        #     if vals: ******* Why eval this every iteration? if vals is not true at the first iteraction it will
-    # never get true subsequently
-        #         # consider this condition and adjust it based on hyrdologic knowledge!
-        #         if val > 100 * (sum(vals) / len(vals)):
-        #             print 'outlier at {} of value:  {}'.format(ind, val)
-        #             print 'value among previous values of: {}'.format(vals)
-        #             series[ind] = nan
-        #             vals = vals[1:20]
-        #             vals.append(val)
-        #             y += 1
-        #         x += 1
-        #
-        # series_mean = series.mean(skipna=True)
-        # print 'removed {} values'.format(y)
-        # print 'mean {} without outliers: {}'.format(series.name, series_mean)
 
     def _value_list(self, series):
         vals = []

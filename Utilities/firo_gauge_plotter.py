@@ -28,7 +28,7 @@ class PlotGauges:
         self._desc_list = ['Discharge [cfs]', 'Stage [ft]', 'Discharge [cfs]', 'Storage [af]']
 
     def plot_discharge(self, data, save_path=None, save_figure=False, save_format='png'):
-        """
+        """Plot typical time vs discharge, etc hydrographs
 
         :param data: 2-tuple or 4-tuple of numpy arrays
         :param save_path: csv save location
@@ -80,9 +80,11 @@ class PlotGauges:
             s[s < x] = nan
             plt_dict.update({key: s})
 
-        cln_df = DataFrame(plt_dict)
-        plt.plot(cln_df.index, cln_df, lw=20)
-        plt.yticks(linspace(1, 5, 5), cln_df.keys(), rotation='horizontal')
+        cln_df = DataFrame(plt_dict).sort()
+        key_list = plt_dict.keys()
+        plt.plot(cln_df.index, cln_df[key_list].sort(), lw=8)
+        plt.yticks(linspace(1, len(cln_df.keys()), len(cln_df.keys())), key_list,
+                   rotation='horizontal')
         plt.ylim(0, len(cln_df.keys()) + 1)
 
         if save_figure:

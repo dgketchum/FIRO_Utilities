@@ -75,23 +75,30 @@ def gauge_clean(root, alt_dirs, gpath):
             print dirpath
             data = other_gauge_reader.read_gauge(dirpath, file_names=filenames)
             other_panels = df_generator.other_array_to_dataframe(data)
-            base = os.path.basename(dirpath)
+            base = os.path.basename(dirpath).replace(' - ', '_')
+            base += '_hourly'
 
             # append data to dict of dfs
             if not df_dict:
                 df_dict.update({base: other_panels})
             else:
                 df_dict.update({base: other_panels})
-            # print df_dict
 
         else:
             # handle all USGS data tables, tab delimited
             base = os.path.basename(dirpath).replace('usgs ', '')
+            parent = os.path.abspath(os.path.join(dirpath, os.pardir))
+            freq = os.path.basename(parent)
+            freq = freq.replace(' ', '_')
             if base == 'observations':
                 parent = os.path.abspath(os.path.join(dirpath, os.pardir))
+                freq = os.path.abspath(os.path.join(parent, os.pardir))
+                freq = os.path.basename(freq)
+                freq = freq.replace(' ', '_')
                 base = os.path.basename(parent).replace('usgs ', '')
 
             print ''
+            print 'frequency: {}'.format(freq)
             print 'base: {}'.format(base)
             print 'dirpath: {}'.format(dirpath)
 
@@ -100,19 +107,21 @@ def gauge_clean(root, alt_dirs, gpath):
 
             # put lists of data into dataframes
             new_df = df_generator.usgs_array_to_dataframe(recs, base)
-            df_dict.update({base: new_df})
+            df_dict.update({'{}_{}'.format(base, freq): new_df})
 
     # clean the data of erroneous values
     # can be set to clean less than and/or greater than 3-sigma
     # and/or can clean using a rolling condition defined in firo_pandas_utils.py
     clean_guage_dfs = df_generator.clean_dataframe(df_dict, save_cleaned_df=True, save_path=csv_save)
-    # print clean_guage_dfs
 
     # plot simple time vs discharge, stage, etc
     gauge_plotter.plot_discharge(clean_guage_dfs, save_figure=True, save_path=fig_save)
 
     # plot a horizontal bar for each gauge's time coverage
     gauge_plotter.plot_time_coverage_bar(clean_guage_dfs, save_figure=True, save_path=fig_save)
+
+    # this isn't fully implemented, once we know what stats we need we can expand it
+    # df_stats = df_generator.save_cleaned_stats(clean_guage_dfs, gauge_dict, csv_save, save_cleaned_states=True)
 
     # (not done) apply data plots or stats to .shp attribute table for display in GIS or cartography
     def data_to_shapefile(gauge_dict):
