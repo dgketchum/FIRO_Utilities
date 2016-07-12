@@ -14,12 +14,13 @@
 # limitations under the License.
 # ===============================================================================
 
+import csv
 
 class CSVParser:
     def __init__(self):
         pass
 
-    def csv_to_dict(self, source_path, headers=None,  has_header=True):
+    def csv_to_dict(self, source_path):
         """
         converts  csv file to a dictionary
 
@@ -28,23 +29,40 @@ class CSVParser:
         :param has_header:
         :return:
         """
-        import csv
-        from collections import defaultdict
-        project = defaultdict(dict)
-        with open(source_path, 'rb') as fp:
-            if has_header:
-                fp.next()
-            reader = csv.DictReader(fp, fieldnames=headers, dialect='excel',
-                                    skipinitialspace=True)
-            for rowdict in reader:
-                try:
-                    station_id = rowdict['StationID']
-                    name = rowdict['Name']
-                except KeyError:
-                    continue
+        print 'parsing gauges to dict'
+        delimiter = ','
+        gauges = {}
+        result = {}
+        with open(source_path, 'r') as data_file:
+            data = csv.reader(data_file, delimiter=delimiter)
+            headers = next(data)[1:]
+            for row in data:
+                temp_dict = {}
+                name = '{} {}'.format(row[0], row[3])
+                id = row[0]
+                values = []
+                for x in row[1:]:
+                    try:
+                        values.append(str(x))
+                    except ValueError:
+                        try:
+                            values.append(int(x))
+                        except ValueError:
+                            try:
+                                values.append(float(x))
+                            except ValueError:
+                                print("Skipping value '{}' that cannot be converted " +
+                                      "to a number - see following row: {}"
+                                      .format(x, delimiter.join(row)))
+                                values.append(0)
 
-                project[station_id][name] = rowdict
-
-        return project
+                for i in range(len(values)):
+                    if values[i]:
+                        temp_dict[headers[i]] = values[i]
+                result[name] = temp_dict
+                temp_dict['Dataframe'] = None
+                temp_dict['ID'] = id
+                gauges.update({name: temp_dict})
+        return gauges
 
 # ============= EOF =============================================

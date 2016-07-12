@@ -16,7 +16,7 @@
 
 from datetime import datetime, timedelta
 import os
-from numpy import array, column_stack
+from numpy import array, column_stack, nan
 
 
 # parent class
@@ -109,85 +109,95 @@ class USGSGaugeReader(GaugeReader):
         self._delimiter = '\t'
 
     def read_gauge(self, root, filenames):
-        """  Reads the USGS gauges in and around FIRO watersheds (i.e. Russian River and trivs)
+        """  Reads the USGS gauges in and around FIRO watersheds (i.e. Russian River and tribs)
 
         :param root: root directory of input data
         :param filenames: list of files to read
         :return: 2-tuple or 4-tuple of numpy arrays
 
         """
-        start = datetime.now() # time process
-        # initiate lists
-        old_base = []
+        start = datetime.now()  # time process
         recs = []
         abc = []
-        # read lines, skip header and descriptions
+        file_ct = 0
+        x = 0
         for rows in self._get_table_rows(root, filenames):
-            if not rows:
-                print 'non rows'
-                return None
-            base = os.path.basename(root).replace('usgs ', '')
-            if base != old_base:
-                # find first file
-                print 'first file'
-                for line in rows:
-                    # use abc to count which read in format is used, be sure to check data to make not to write in
-                    # a quality flag code,
-                    # as of 7 JUL 16, all cases below are used, check new gauge files for conforming format
-                    if line[0] in ['USGS', base]:
-                        if line[2] in ['PST', 'PDT']:
-                            recs.append([datetime.strptime(line[1], '%Y%m%d%H%M%S'), line[5]])
-                        try:
-                            if line[3] in ['PST', 'PDT']:
-                                try:
-                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
-                                    abc.append('a')
-                                except ValueError:
-                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
-                                    abc.append('b')
-
-                        except IndexError:
-                            abc.append('v')
-
+            base = self._get_base(root)
+            for line in rows:
+                if line[0] in ['USGS', base[:8]]:
+                    if base in ['11461000 15 minute', '11461500 15 minute', '11462000 15 minute',
+                                '11462500 15 minute']:
+                        if file_ct == 0:
+                            recs.append([datetime.strptime(line[1], '%Y%m%d%H%M%S'), line[5], nan])
+                            abc.append('a')
                         else:
                             try:
-                                recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3]])
-                                abc.append('c')
+                                recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
+                                abc.append('b')
                             except ValueError:
-
+                                abc.append('y')
+                            except IndexError:
                                 try:
-                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3]])
-                                    abc.append('d')
-                                except ValueError:
+                                    recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], nan])
+                                    abc.append('b')
+                                except IndexError:
+                                    if x < 10:
+                                        print line
+                                        x += 1
                                     abc.append('x')
 
-                    else:
-                        abc.append('y')
-
-            else: # if there are multiple files, continue reading onto the same list
-                print 'continuing time series'
-                for line in rows:
-                    if line[0] in ['USGS', base]:
+                    elif base == '11462080 15 minute':
                         try:
-                            recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4], line[6]])
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[6], line[4]])
+                            abc.append('c')
+                        except IndexError:
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), nan, nan])
+                            abc.append('x')
+
+                    elif base in ['11460940 daily', '11461400 daily', '11461501 daily', '11462080 daily',
+                                  '11471000 daily', '11471099 daily', '11471100 daily', '11471105 daily',
+                                  '11471106 daily']:
+                        try:
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3], nan])
+                            abc.append('d')
+                        except IndexError:
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d'), nan, nan])
+                            abc.append('x')
+
+                    elif base == '11462000 daily':
+                        try:
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[9], nan])
                             abc.append('e')
                         except IndexError:
-                            recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d'), nan, nan])
+                            abc.append('x')
+
+                    elif base == '11462500 daily':
+                        try:
+                            recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[6], line[8]])
                             abc.append('f')
                         except ValueError:
-                            recs.append([datetime.strptime(line[2], '%Y-%m-%d %H:%M'), line[4]])
-                            abc.append('f')
-
-                    else:
-                        abc.append('z')
-
-            old_base = base
-
+                            abc.append('y')
+            file_ct += 1
         end = datetime.now()
         elapsed = end - start
         if recs:
             print 'time for usgs read gauge on {} was {}'.format(base, elapsed)
-            nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'abcdefvxyz'])
-            return recs, nabc
+            nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'abcdefxy'])
+            return recs, nabc, base
 
+    def _get_base(self, root):
+        base = os.path.basename(root).replace('usgs ', '')
+        if base == 'observations':
+            parent = os.path.abspath(os.path.join(root, os.pardir))
+            freq = os.path.abspath(os.path.join(parent, os.pardir))
+            freq = os.path.basename(freq)
+            base = os.path.basename(parent).replace('usgs ', '')
+            base = '{} {}'.format(base, freq)
+        else:
+            parent = os.path.abspath(os.path.join(root, os.pardir))
+            freq = os.path.basename(parent)
+            base = '{} {}'.format(base, freq)
+        print 'base: {}'.format(base)
+        return base
 # ============= EOF =============================================

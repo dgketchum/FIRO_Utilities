@@ -79,26 +79,15 @@ class DataframeManagement:
 
         """
         cols = ['Q_cfs', 'Stage_ft', 'Qout_cfs', 'Storage_acft']
-        try:
-            # this if for the records that have both discharge and stage data
-            # fill empty columns with NaN so all dataframes have same shape and keys (column headers)
-            # index with pandas Timestamp datetimes
-            q_arr = array([(element[0], element[1], element[2]) for element in data]).squeeze()
-            nan_ser = Series(nan, index=q_arr[:, 0])
-            q_df1 = DataFrame(column_stack((q_arr[:, 1], q_arr[:, 2], nan_ser, nan_ser)), index=q_arr[:, 0],
-                              columns=cols)
-            q_df1.columns = cols
 
-        except IndexError:
-            # records with only discharge data
-            # fill empyy columns with NaN, use standard headers
-            # index with pandas Timestamp datetimes
-            q_arr = array([(element[0], element[1]) for element in data]).squeeze()
-            q_ser = Series(q_arr[:, 1], index=q_arr[:, 0])
-            print q_ser
-            nan_ser = Series(nan, index=q_arr[:, 0])
-            q_df1 = concat([q_ser, nan_ser, nan_ser, nan_ser], join='outer', axis=1)
-            q_df1.columns = cols
+        # this if for the records that have both discharge and stage data
+        # fill empty columns with NaN so all dataframes have same shape and keys (column headers)
+        # index with pandas Timestamp datetimes
+        q_arr = array([(element[0], element[1], element[2]) for element in data]).squeeze()
+        nan_ser = Series(nan, index=q_arr[:, 0])
+        q_df1 = DataFrame(column_stack((q_arr[:, 1], q_arr[:, 2], nan_ser, nan_ser)), index=q_arr[:, 0],
+                          columns=cols)
+        q_df1.columns = cols
 
         # organize concatenated series (dataframe) into consistent shape
         grouped = q_df1.groupby(level=0)
@@ -110,7 +99,7 @@ class DataframeManagement:
             print 'non-unique indices in your df'
         return q_df
 
-    def clean_dataframe(self, dict_of_dataframes, clean_beyond_three_sigma=True, clean_before_three_sigma=False,
+    def clean_dataframe(self, dict_of_dataframes, clean_beyond_three_sigma=False, clean_before_three_sigma=False,
                         impose_rolling_condition=False, save_cleaned_df=False, save_path=None):
         """Take gauge data and clean it, removing supect vales and replacing with NaN
 
@@ -125,110 +114,107 @@ class DataframeManagement:
         print 'clean dfs'
         df_dict = dict_of_dataframes
 
-        cln_dfs = {}
         # each key is a separate gauge
         for key in df_dict:
             print ''
             print 'key: {}'.format(key)
-            # put key in numerical dataframe format, remove negative values
-            df = df_dict[key].apply(to_numeric)
-            df[df < 0] = nan
-            # each series is a data type, i.e. discharge, stage, etc.
-            for series in df_dict[key]:
-                print ''
-                series = df[series]
-                print series.name, type(series)
-                series_mean = series.mean(skipna=True)
-                series_std = series.std(skipna=True)
-                print 'mean {} with outliers: {}'.format(series.name, series_mean)
+            if key == '11462125 peak':
+                print 'peak data skipped for cleaning'
+            else:
+                # put key in numerical dataframe format, remove negative values
+                df = df_dict[key]['Dataframe']
+                df = df.apply(to_numeric)
+                df[df < 0] = nan
+                # each series is a data type, i.e. discharge, stage, etc.
+                for series in df:
+                    print ''
+                    series = df[series]
+                    print series.name, type(series)
+                    series_mean = series.mean(skipna=True)
+                    series_std = series.std(skipna=True)
+                    print 'mean {} with outliers: {}'.format(series.name, series_mean)
 
-                # count values falling above 3-sigma
-                xx = 0
-                yy = 0
-                for index, value in series.iteritems():
-                    if value > (series_mean + 3 * series_std):
-                        xx += 1
-                        # print element, 'over 3 * std'
-                    elif value == 0.0:
-                        yy += 1
-                print '{} elements over mean 3 * std of n = {}'.format(xx, len(series))
-                print '{} elements are ZERO of n = {}'.format(yy, len(series))
+                    # count values falling above 3-sigma
+                    xx = 0
+                    yy = 0
+                    for index, value in series.iteritems():
+                        if value > (series_mean + 3 * series_std):
+                            xx += 1
+                            # print element, 'over 3 * std'
+                        elif value == 0.0:
+                            yy += 1
+                    print '{} elements over mean 3 * std of n = {}'.format(xx, len(series))
+                    print '{} elements are ZERO of n = {}'.format(yy, len(series))
 
-                # clean values falling above and/or below 3-sigma
-                if clean_beyond_three_sigma:
-                    series[series > series_mean + 3 * series_std] = nan
-                if clean_before_three_sigma:
-                    series[series > series_mean + 3 * series_std] = nan
+                    # clean values falling above and/or below 3-sigma
+                    if clean_beyond_three_sigma:
+                        series[series > series_mean + 3 * series_std] = nan
+                    if clean_before_three_sigma:
+                        series[series > series_mean + 3 * series_std] = nan
 
-                # clean stage data that is obviously erroneous
-                if key == 'CLV - Cloverdale':
-                    if series.name == 'Stage_ft':
-                        print ' working on CLV stage'
-                        series[series > 15.0] = nan
-                        series[series == 0.0] = nan
-                        series_mean = series.mean(skipna=True)
-                        print 'mean {} without outliers: {}'.format(series.name, series_mean)
-
-                    # what is a resonable outlier that needs removal is arguable
-                    # the problem with discharge is that during a runoff event, Q can increase by an order
-                    # of magnitude or more within an hour
-                    # this rolling window only looks back, perhaps it would be better to center it
-                    # or, better, compare with precip and find values not associated with rain or melt
-                    elif series.name == 'Qout_cfs':
-                        if impose_rolling_condition:
-                            x = 0
-                            y = 0
-                            vals = self._value_list(series)
-                            for ind, val in series.iteritems():
-                                if vals:
-                                    # consider this condition and adjust it based on hyrdologic knowledge!
-                                    if val > 10 * (sum(vals)/len(vals)):
-                                        print 'outlier at {} of value:  {}'.format(ind, val)
-                                        print 'value among previous values of: {}'.format(vals)
-                                        series[ind] = nan
-                                        y += 1
-                                    elif val < 0.1 * (sum(vals) / len(vals)):
-                                        print 'outlier at {} of value:  {}'.format(ind, val)
-                                        print 'value among previous values of: {}'.format(vals)
-                                        series[ind] = nan
-                                        y += 1
-                                    vals = vals[1:20]
-                                    vals.append(val)
-                                    x += 1
-
+                    # clean stage data that is obviously erroneous
+                    if key == 'CLV - Cloverdale hourly':
+                        if series.name == 'Stage_ft':
+                            print ' working on CLV stage'
+                            series[series > 15.0] = nan
+                            series[series == 0.0] = nan
                             series_mean = series.mean(skipna=True)
-                            print 'removed {} values'.format(y)
                             print 'mean {} without outliers: {}'.format(series.name, series_mean)
 
-                elif key == 'COY - Coyote':
-                    if series.name == 'Stage_ft':
-                        print ' working on COY stage'
-                        # stage 670. is about the elevation of the outflow structure
-                        series[series < 670.0] = nan
-                        series[series == 0.0] = nan
-                        series_mean = series.mean(skipna=True)
-                        print 'mean {} without outliers: {}'.format(series.name, series_mean)
-                        # how fast can the stage change?
-                        # there are some suspect, low values that current conditional leaves in the data
+                        # what is a resonable outlier that needs removal is arguable
+                        # the problem with discharge is that during a runoff event, Q can increase by an order
+                        # of magnitude or more within an hour
+                        # this rolling window only looks back, perhaps it would be better to center it
+                        # or, better, compare with precip and find values not associated with rain or melt
+
+                    elif key == 'COY - Coyote hourly':
+                        if series.name == 'Stage_ft':
+                            print ' working on COY stage'
+                            # stage 670. is about the elevation of the outflow structure
+                            series[series < 670.0] = nan
+                            series[series == 0.0] = nan
+                            series_mean = series.mean(skipna=True)
+                            print 'mean {} without outliers: {}'.format(series.name, series_mean)
+                            # how fast can the stage change?
+                            # there are some suspect, low values that current conditional leaves in the data
+                            if impose_rolling_condition:
+                                self._impose_rolling_condition(series,
+                                                               lambda vi, av: vi < 0.9 * av and vi < 705)
+                        elif series.name == 'Qout_cfs':
+                            if impose_rolling_condition:
+                                x = 0
+                                y = 0
+                                vals = self._value_list(series)
+                                for ind, val in series.iteritems():
+                                    if vals:
+                                        # consider this condition and adjust it based on hyrdologic knowledge!
+                                        if val > 100 * (sum(vals) / len(vals)):
+                                            print 'outlier at {} of value:  {}'.format(ind, val)
+                                            print 'value among previous values of: {}'.format(vals)
+                                            series[ind] = nan
+                                            y += 1
+                                        elif val < 0.01 * (sum(vals) / len(vals)):
+                                            print 'outlier at {} of value:  {}'.format(ind, val)
+                                            print 'value among previous values of: {}'.format(vals)
+                                            series[ind] = nan
+                                            y += 1
+                                        vals = vals[1:20]
+                                        vals.append(val)
+                                        x += 1
+
+                    if series.name == 'Q_cfs':
                         if impose_rolling_condition:
-                            self._impose_rolling_condition(series, lambda vi, av: vi < 0.9 * av and vi < 705)
+                            self._impose_rolling_condition(series, lambda vi, av: vi > 100 * av)
 
-                    if series.name == 'Qout_cfs':
-                        if impose_rolling_condition:
-                            self._impose_rolling_condition(series, lambda vi, av: vi > 10 * av)
+                df_dict[key].update({'Dataframe': df})
 
-                if series.name == 'Q_cfs':
-                    if impose_rolling_condition:
-                       self._impose_rolling_condition(series, lambda vi, av: vi > 100 * av)
-
-            cln_dfs.update({key: df})
-
-            if save_cleaned_df:
-                for key in cln_dfs:
-                    df = cln_dfs[key]
+        if save_cleaned_df:
+            for key in df_dict:
+                if key != '11462125 peak':
+                    df = df_dict[key]['Dataframe']
                     df.to_csv(r'{}\Clean_{}.csv'.format(save_path, key), sep=',', index_label='DateTime')
 
-        return cln_dfs
+        return df_dict
 
     def save_cleaned_stats(self, cleaned_dataframe_dict, gauge_dict, save_path, save_cleaned_states=False):
         """Find stats on data coverage and save to a csv
