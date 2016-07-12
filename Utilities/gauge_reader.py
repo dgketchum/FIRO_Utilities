@@ -19,7 +19,6 @@ import os
 from numpy import array, column_stack, nan
 
 
-# parent class
 class GaugeReader(object):
     def __init__(self):
         self._delimiter = ','
@@ -100,21 +99,21 @@ class PrecipGaugeReader(GaugeReader):
 
     def read_in_precip_gauge(self, root, ppt_file):
         print 'read in precip'
-        row_ct = 0
+        first = True
         recs = []
         abc = []
-        for row in self._read_table_rows(root, ppt_file):
-            if row_ct > 0:
+        for i, row in enumerate(self._read_table_rows(root, ppt_file)):
+            if first:
+                first = False
+            else:
                 recs.append([datetime.strptime(row[5], '%Y%m%d'), row[6]])
                 abc.append('a')
-                if row_ct < 20:
-                    print row
-            row_ct += 1
+            if i < 20:
+                print row
         nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'ax'])
         return recs, nabc
 
 
-# child I inherit attributes and methods from GaugeReader
 class USGSGaugeReader(GaugeReader):
 
     def __init__(self):
@@ -214,4 +213,6 @@ class USGSGaugeReader(GaugeReader):
             base = '{} {}'.format(base, freq)
         print 'base: {}'.format(base)
         return base
+
+
 # ============= EOF =============================================
