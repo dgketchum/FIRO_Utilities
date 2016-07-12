@@ -25,11 +25,12 @@ dgketchum 1 JUL 2016
 
 import os
 from Utilities.dictUtilities import CSVParser
-from Utilities.gauge_reader import OtherGaugeReader, USGSGaugeReader
+from Utilities.gauge_reader import OtherGaugeReader, USGSGaugeReader, PrecipGaugeReader
 from Utilities.gauge_data_clean import DataframeManagement
 from Utilities.firo_gauge_plotter import PlotGauges
-from pandas import set_option
-from numpy import set_printoptions
+from pandas import set_option, Series, to_numeric
+from numpy import set_printoptions, array
+from matplotlib import pyplot as plt
 
 # print options can be set long to see more array data at once
 set_printoptions(threshold=3000, edgeitems=500)
@@ -50,6 +51,10 @@ def gauge_clean(root, alt_dirs, gpath):
     usgs_gauge_reader = USGSGaugeReader()
     gauge_plotter = PlotGauges()
     csv_parser = CSVParser()
+    ppt_reader = PrecipGaugeReader()
+
+    ppt, check = ppt_reader.read_in_precip_gauge(ppt_path, 'pottervalleypowerhouse.csv')
+    print check
 
     # read in a csv with coordinates as dict with gauge numbers as keys,
     # this will be filled with gauge data below
@@ -62,7 +67,7 @@ def gauge_clean(root, alt_dirs, gpath):
         # don't read in parent dirs
         # print 'working on {}, basename {}'.format(dirpath, os.path.basename(dirpath))
         if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables', 'uncleaned',
-                                         'figures', 'stream_gages', 'extras', 'CSVs', 'code', 'older']:
+                                         'figures', 'stream_gages', 'extras', 'CSVs', 'code', 'older', 'precip']:
 
             print os.path.basename(dirpath), 'left off from data collection'
 
@@ -89,6 +94,27 @@ def gauge_clean(root, alt_dirs, gpath):
             # put lists of data into dataframes
             new_df = df_generator.usgs_array_to_dataframe(recs, base)
             gauge_dict[base].update({'Dataframe': new_df})
+
+    # print comparison between a precip gauge and an unedited stream gauge
+    sdf = gauge_dict['CLV - Cloverdale hourly']['Dataframe']
+    s = sdf['Q_cfs']
+    s = s.apply(to_numeric)
+    s[s < 0] = 0.0
+    ppt_s = Series(array(ppt)[:, 1], index=array(ppt)[:, 0])
+    ppt_s = ppt_s.apply(to_numeric)
+    ppt_s[ppt_s < 0] = 0.0
+    ppt_s = ppt_s[(ppt_s.index.year > 1987)]
+    plt.figure()
+    plt.subplot(2, 1, 1)
+    plt.plot(s, 'k', label='Discharge [cfs]')
+    plt.legend()
+    plt.title('Discharge at Cloverdale')
+    plt.xlabel('Date')
+    plt.ylabel('(mm)')
+    plt.subplot(2, 1, 2)
+    plt.title('Daily Precipitation at Potter Valley Powerhouse')
+    plt.plot(ppt_s, label='Precipitation [mm]')
+    plt.legend()
 
     # clean the data of erroneous values
     # can be set to clean less than and/or greater than 3-sigma
@@ -117,6 +143,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     root = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages')
+    ppt_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'precipitation', 'daily')
     ad = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\CLV - Cloverdale',
           r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\COY - Coyote']
     fig_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'extras', 'figures')

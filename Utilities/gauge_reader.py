@@ -29,10 +29,6 @@ class GaugeReader(object):
 
     def _read_table_rows(self, root, name):
         with open(os.path.join(root, name), 'r') as rfile:
-
-            # if self is a GaugeReader or OtherGaugeReader then self._delimiter == ','
-            # if self is a USGSGaugeReader self._delimiter = '\t'
-
             return [line.rstrip().split(self._delimiter) for line in rfile]
 
     def _get_table_rows(self, root, fns):
@@ -98,6 +94,24 @@ class OtherGaugeReader(GaugeReader):
                 day_hour = day + timedelta(hours=xx)
                 line_data.append([day_hour, line[xx + 3]])
         return line_data
+
+
+class PrecipGaugeReader(GaugeReader):
+
+    def read_in_precip_gauge(self, root, ppt_file):
+        print 'read in precip'
+        row_ct = 0
+        recs = []
+        abc = []
+        for row in self._read_table_rows(root, ppt_file):
+            if row_ct > 0:
+                recs.append([datetime.strptime(row[5], '%Y%m%d'), row[6]])
+                abc.append('a')
+                if row_ct < 20:
+                    print row
+            row_ct += 1
+        nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'ax'])
+        return recs, nabc
 
 
 # child I inherit attributes and methods from GaugeReader
