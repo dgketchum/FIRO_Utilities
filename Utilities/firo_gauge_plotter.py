@@ -18,8 +18,9 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from numpy import count_nonzero, isnan, linspace, nan
-from pandas import Series
-
+from pandas import Series, options
+from copy import deepcopy
+# options.mode.chained_assignment = None
 
 class PlotGauges:
 
@@ -35,7 +36,7 @@ class PlotGauges:
         self._critical_gauges = ['CLV - Cloverdale hourly', '11462500 15 minute', '11462080 15 minute',
                                  '11461000 15 minute', 'COY - Coyote hourly', '11461500 15 minute',
                                  '11471000 daily']
-
+        self._hopland = '11462500 15 minute'
     def plot_discharge(self, data, save_path=None, save_figure=False, save_format='png'):
         """Plot typical time vs discharge, etc hydrographs
 
@@ -88,10 +89,11 @@ class PlotGauges:
 
     def plot_hyd_subplots(self, data, save_path=None, save_figure=False, save_format='png'):
 
+        key_list = [key for key in data]
         x = 1
         for key in data:
             print key
-            if key in self._critical_gauges:
+            if key in key_list:
                 df = data[key]['Dataframe']
                 ser = Series(df['Q_cfs'])
                 ser = ser[(ser.index.year > 1989)]
@@ -100,6 +102,33 @@ class PlotGauges:
                 plt.plot(ser)
                 plt.title('{} {}'.format(data[key]['Name'], key))
                 x += 1
+                if save_figure:
+                    print 'saving'
+                    plt.savefig('{}\\allGauges.{}'.format(save_path, save_format), dpi=500)
+                    plt.close()
+
+        for key in data:
+            print key
+            if key in key_list:
+                df = data[key]['Dataframe']
+                ser = Series(df['Q_cfs'])
+                ser = ser[(ser.index.year > 1998) & (ser.index.year < 2002)]
+                print ser.index[0]
+                if key == '11471000 daily':
+                    plt.subplot(2, 1, 1)
+                    plt.plot(ser)
+                    plt.title('{} {}'.format(data[key]['Name'], key))
+                    plt.xlabel('Date')
+                    plt.ylabel('[cfs]')
+                else:
+                    print 'second suplot'
+                    if key != '11471099 daily':
+                        plt.subplot(2, 1, 2)
+                        plt.plot(ser)
+                        plt.title('Discharge at Irrigation Canals')
+                        plt.xlabel('Date')
+                        plt.ylabel('[cfs]')
+
                 if save_figure:
                     print 'saving'
                     plt.savefig('{}\\allGauges.{}'.format(save_path, save_format), dpi=500)
@@ -131,28 +160,41 @@ class PlotGauges:
             key_list = [key for key in data]
         key_list.sort()
         combo_list = []
+
         for key in data:
-            if key != '11462125 peak':
+            if key not in ['11462125 peak', '11461000 daily']:
                 for id in key_list:
                     if key == id:
                         combo_list.append((id, data[key]['Name'], data[key]['Dataframe']))
                         break
         sort_list = sorted(combo_list, key=lambda xx: xx[0])
+        for i, element in enumerate(sort_list):
+            if element[2].shape[1] == 5:
+                rep = element[2]['Replacement Stage']
+                pos = i
         if stage_plot:
             stage_list = [data[x[0]]['Dataframe']['Stage_ft'] for x in sort_list]
             for x in range(len(stage_list)):
                 s = stage_list[x]
-                s[s > -0.1] = x + 1.2
+                s = deepcopy(s)
+                s = s
+                s[s > -0.1] = x + 1.1
                 s[isnan(s)] = nan
-                plt.plot(s, 'b', lw=10, label='Stage [ft]')
+                plt.plot(s, 'blue', lw=10, label='Stage [ft]')
+                if pos == x:
+                    r = rep
+                    r[r > -0.1] = x + 1.2
+                    plt.plot(r, 'green', lw=10, label='Rebuilt Stage [ft]')
+
         plt.legend()
         dict_list = [data[x[0]]['Dataframe']['Q_cfs'] for x in sort_list]
         name_list = ['{} {}'.format(x[1], x[0]) for x in sort_list]
         for x in range(len(dict_list)):
             s = dict_list[x]
+            s = deepcopy(s)
             s[s > -0.1] = x + 1
             s[isnan(s)] = nan
-            plt.plot(s, 'r', lw=10, label='Discharge [cfs]')
+            plt.plot(s, 'red', lw=10, label='Discharge [cfs]')
         plt.yticks(linspace(1, len(dict_list), len(dict_list)), name_list,
                    rotation='horizontal')
         if stage_plot:
@@ -161,9 +203,10 @@ class PlotGauges:
             plt.title('Gauge Discharge Data Availability Through Time')
         plt.grid(color='grey', linestyle='dashed')
         plt.ylim(0, len(dict_list) + 1)
-        red_patch = mpatches.Patch(color='red', label='Discharge [cfs]')
         blue_patch = mpatches.Patch(color='blue', label='Stage [ft]')
-        plt.legend(handles=[red_patch, blue_patch])
+        green_patch = mpatches.Patch(color='green', label='Rebuilt Stage [ft]')
+        red_patch = mpatches.Patch(color='red', label='Discharge [cfs]')
+        plt.legend(handles=[red_patch, blue_patch, green_patch], loc=2)
         plt.show()
 
         if save_figure:

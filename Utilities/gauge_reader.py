@@ -95,25 +95,6 @@ class OtherGaugeReader(GaugeReader):
         return line_data
 
 
-class PrecipGaugeReader(GaugeReader):
-
-    def read_in_precip_gauge(self, root, ppt_file):
-        print 'read in precip'
-        first = True
-        recs = []
-        abc = []
-        for i, row in enumerate(self._read_table_rows(root, ppt_file)):
-            if first:
-                first = False
-            else:
-                recs.append([datetime.strptime(row[5], '%Y%m%d'), row[6]])
-                abc.append('a')
-            if i < 20:
-                print row
-        nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'ax'])
-        return recs, nabc
-
-
 class USGSGaugeReader(GaugeReader):
 
     def __init__(self):
@@ -169,7 +150,7 @@ class USGSGaugeReader(GaugeReader):
 
                     elif base in ['11460940 daily', '11461400 daily', '11461501 daily', '11462080 daily',
                                   '11471000 daily', '11471099 daily', '11471100 daily', '11471105 daily',
-                                  '11471106 daily']:
+                                  '11471106 daily', '11461000 daily']:
                         try:
                             recs.append([datetime.strptime(line[2], '%Y-%m-%d'), line[3], nan])
                             abc.append('d')
@@ -213,6 +194,47 @@ class USGSGaugeReader(GaugeReader):
             base = '{} {}'.format(base, freq)
         print 'base: {}'.format(base)
         return base
+
+
+class PrecipGaugeReader(GaugeReader):
+
+    def read_in_precip_gauge(self, root, ppt_file):
+        print 'read in precip'
+        first = True
+        recs = []
+        abc = []
+        for i, row in enumerate(self._read_table_rows(root, ppt_file)):
+            if i < 20:
+                print row
+            if first:
+                first = False
+            else:
+                date = str(row[0]) + str(row[1]) + str(row[2]) + str(row[3]) + str(row[4])
+                recs.append([datetime.strptime(date, '%Y%m%d%H%M'), row[5]])
+                abc.append('a')
+        nabc = array(['{}: {}'.format(attr, abc.count(attr)) for attr in 'ax'])
+        return recs, nabc
+
+
+class RatingCurveReader(GaugeReader):
+
+    def __init__(self):
+        # change delimiter to tab
+        super(RatingCurveReader, self).__init__()
+        self._delimiter = '\t'
+
+    def read_gauge_rating(self, root, name):
+        print 'read in rating curve'
+        recs = []
+        for i, row in enumerate(self._read_table_rows(root, name)):
+            try:
+                recs.append([float(row[0]), float(row[1]), float(row[2])])
+            except IndexError:
+                pass
+            except ValueError:
+                pass
+        recs = array(recs)
+        return recs
 
 
 # ============= EOF =============================================

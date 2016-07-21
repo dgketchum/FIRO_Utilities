@@ -25,12 +25,11 @@ dgketchum 1 JUL 2016
 
 import os
 from Utilities.dictUtilities import CSVParser
-from Utilities.gauge_reader import OtherGaugeReader, USGSGaugeReader, PrecipGaugeReader
+from Utilities.gauge_reader import OtherGaugeReader, USGSGaugeReader, PrecipGaugeReader, RatingCurveReader
 from Utilities.gauge_data_clean import DataframeManagement
 from Utilities.firo_gauge_plotter import PlotGauges
-from pandas import set_option, Series, to_numeric
-from numpy import set_printoptions, array
-from matplotlib import pyplot as plt
+from pandas import set_option
+from numpy import set_printoptions
 
 # print options can be set long to see more array data at once
 set_printoptions(threshold=3000, edgeitems=500)
@@ -52,13 +51,19 @@ def gauge_clean(root, alt_dirs, gpath):
     gauge_plotter = PlotGauges()
     csv_parser = CSVParser()
     ppt_reader = PrecipGaugeReader()
+    rating_reader = RatingCurveReader()
 
     ppt, check = ppt_reader.read_in_precip_gauge(ppt_path, 'pottervalleypowerhouse.csv')
-    print check
 
     # read in a csv with coordinates as dict with gauge numbers as keys,
     # this will be filled with gauge data below
-    gauge_dict = csv_parser.csv_to_dict(gpath)
+    gauge_dict = csv_parser.csv_to_dict(gpath, type='stream_gauges')
+    print gauge_dict
+
+    rating_filename = 'usgs 11462500.txt'
+    rating = rating_reader.read_gauge_rating(rating_path, rating_filename)
+    base = rating_filename.replace('usgs ', '').replace('.txt', ' 15 minute')
+    gauge_dict[base].update({'Rating': rating})
 
     # loop through all files in dirpath, reading gauge data and appending
     # to a dict of pandas dataframes
@@ -67,7 +72,8 @@ def gauge_clean(root, alt_dirs, gpath):
         # don't read in parent dirs
         # print 'working on {}, basename {}'.format(dirpath, os.path.basename(dirpath))
         if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables', 'uncleaned',
-                                         'figures', 'stream_gages', 'extras', 'CSVs', 'code', 'older', 'precip']:
+                                         'figures', 'stream_gages', 'extras', 'CSVs', 'code', 'older',
+                                         'precip']:
 
             print os.path.basename(dirpath), 'left off from data collection'
 
@@ -95,45 +101,24 @@ def gauge_clean(root, alt_dirs, gpath):
             new_df = df_generator.usgs_array_to_dataframe(recs, base)
             gauge_dict[base].update({'Dataframe': new_df})
 
-    # print comparison between a precip gauge and an unedited stream gauge
-    sdf = gauge_dict['CLV - Cloverdale hourly']['Dataframe']
-    s = sdf['Q_cfs']
-    s = s.apply(to_numeric)
-    s[s < 0] = 0.0
-    ppt_s = Series(array(ppt)[:, 1], index=array(ppt)[:, 0])
-    ppt_s = ppt_s.apply(to_numeric)
-    ppt_s[ppt_s < 0] = 0.0
-    ppt_s = ppt_s[(ppt_s.index.year > 1987)]
-    plt.figure()
-    plt.subplot(2, 1, 1)
-    plt.plot(s, 'k', label='Discharge [cfs]')
-    plt.legend()
-    plt.title('Discharge at Cloverdale')
-    plt.xlabel('Date')
-    plt.ylabel('(mm)')
-    plt.subplot(2, 1, 2)
-    plt.title('Daily Precipitation at Potter Valley Powerhouse')
-    plt.plot(ppt_s, label='Precipitation [mm]')
-    plt.legend()
-
     # clean the data of erroneous values
     # can be set to clean less than and/or greater than 3-sigma
     # and/or can clean using a rolling condition defined in firo_pandas_utils.py
-    clean_guage_dfs = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
-                                                   impose_rolling_condition=False,
-                                                   save_cleaned_df=False, save_path=csv_save)
+    clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
+                                                impose_rolling_condition=True, fill_stage=True,
+                                                save_cleaned_df=False, save_path=csv_save)
 
     # plot simple time vs discharge, stage, etc
-    # gauge_plotter.plot_discharge(clean_guage_dfs, save_figure=True, save_path=fig_save)
+    # gauge_plotter.plot_discharge(clean_gauges, save_figure=True, save_path=fig_save)
 
     # plot a horizontal bar for each gauge's time coverage
-    gauge_plotter.plot_time_coverage_bar(clean_guage_dfs, stage_plot=True, zone='downstream', save_figure=False,
+    gauge_plotter.plot_time_coverage_bar(clean_gauges, stage_plot=True, zone='downstream', save_figure=False,
                                          save_path=fig_save, save_format='svg')
 
-    # gauge_plotter.plot_hyd_subplots(clean_guage_dfs)
+    # gauge_plotter.plot_hyd_subplots(clean_gauges)
 
     # this isn't fully implemented, once we know what stats we need we can expand it
-    # df_stats = df_generator.save_cleaned_stats(clean_guage_dfs, gauge_dict, csv_save, save_cleaned_states=True)
+    # df_stats = df_generator.save_cleaned_stats(clean_gauges, gauge_dict, csv_save, save_cleaned_states=True)
 
     # (not done) apply data plots or stats to .shp attribute table for display in GIS or cartography
     def data_to_shapefile(gauge_dict):
@@ -143,7 +128,8 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     root = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages')
-    ppt_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'precipitation', 'daily')
+    ppt_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'precipitation', 'FIRO_precip_coops', 'processed_hourly')
+    rating_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'rating_curves')
     ad = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\CLV - Cloverdale',
           r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\COY - Coyote']
     fig_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'extras', 'figures')

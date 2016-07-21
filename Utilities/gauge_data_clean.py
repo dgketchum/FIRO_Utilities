@@ -14,8 +14,8 @@
 # limitations under the License.
 # ===============================================================================
 
-from pandas import Series, concat, DataFrame, to_numeric, Timedelta, isnull
-from numpy import array, column_stack, nan, count_nonzero
+from pandas import Series, concat, DataFrame, to_numeric, isnull, notnull, rolling_median
+from numpy import array, column_stack, nan, count_nonzero, argmin, abs
 from datetime import datetime
 
 
@@ -99,8 +99,21 @@ class DataframeManagement:
             print 'non-unique indices in your df'
         return q_df
 
-    def clean_dataframe(self, dict_of_dataframes, clean_beyond_three_sigma=False, clean_before_three_sigma=False,
-                        impose_rolling_condition=False, save_cleaned_df=False, save_path=None):
+    def rating_array_to_dataframe(self, data):
+        """
+
+        :param data:
+        :return:
+        """
+
+        arr = array([(element[0], element[1], element[2]) for element in data])
+        df = DataFrame(arr, columns=['Ind', 'Shift', 'Dep'])
+        print df
+        return
+
+    def clean_dataframe(self, dict_of_dataframes, single_gauge=False, fill_stage=False, clean_beyond_three_sigma=False,
+                        clean_before_three_sigma=False, impose_rolling_condition=False, rolling_window=5,
+                        save_cleaned_df=False, save_path=None):
         """Take gauge data and clean it, removing supect vales and replacing with NaN
 
         :param dict_of_dataframes:
@@ -114,20 +127,27 @@ class DataframeManagement:
         print 'clean dfs'
         df_dict = dict_of_dataframes
 
+        # fill stage data from rating curve data
+        if fill_stage:
+            self._fill_stage(df_dict)
+
         # each key is a separate gauge
         for key in df_dict:
-            print ''
-            print 'key: {}'.format(key)
             if key == '11462125 peak':
                 print 'peak data skipped for cleaning'
             else:
                 # put key in numerical dataframe format, remove negative values
-                df = df_dict[key]['Dataframe']
+                if single_gauge:
+                    key = df_dict.keys()[0]
+                    df = df_dict.values()[0]
+                else:
+                    df = df_dict[key]['Dataframe']
+                print ''
+                print 'key: {}'.format(key)
                 df = df.apply(to_numeric)
                 df[df < 0] = nan
                 # each series is a data type, i.e. discharge, stage, etc.
                 for series in df:
-                    print ''
                     series = df[series]
                     print series.name, type(series)
                     series_mean = series.mean(skipna=True)
@@ -140,7 +160,6 @@ class DataframeManagement:
                     for index, value in series.iteritems():
                         if value > (series_mean + 3 * series_std):
                             xx += 1
-                            # print element, 'over 3 * std'
                         elif value == 0.0:
                             yy += 1
                     print '{} elements over mean 3 * std of n = {}'.format(xx, len(series))
@@ -161,62 +180,42 @@ class DataframeManagement:
                             series_mean = series.mean(skipna=True)
                             print 'mean {} without outliers: {}'.format(series.name, series_mean)
 
-                        # what is a resonable outlier that needs removal is arguable
-                        # the problem with discharge is that during a runoff event, Q can increase by an order
-                        # of magnitude or more within an hour
-                        # this rolling window only looks back, perhaps it would be better to center it
-                        # or, better, compare with precip and find values not associated with rain or melt
-
                     elif key == 'COY - Coyote hourly':
                         if series.name == 'Stage_ft':
-                            print ' working on COY stage'
-                            # stage 670. is about the elevation of the outflow structure
+                            print ' working on COY storage'
                             series[series < 670.0] = nan
                             series[series == 0.0] = nan
+                            if impose_rolling_condition:
+                                self._impose_rolling_condition(series, rolling_window)
+
+                        elif series.name == 'Storage_acft':
+                            print ' working on COY stage'
                             series_mean = series.mean(skipna=True)
-                            print 'mean {} without outliers: {}'.format(series.name, series_mean)
-                            # how fast can the stage change?
-                            # there are some suspect, low values that current conditional leaves in the data
                             if impose_rolling_condition:
-                                self._impose_rolling_condition(series,
-                                                               lambda vi, av: vi < 0.9 * av and vi < 705)
+                                self._impose_rolling_condition(series, rolling_window)
+
                         elif series.name == 'Qout_cfs':
-                            if impose_rolling_condition:
-                                x = 0
-                                y = 0
-                                vals = self._value_list(series)
-                                for ind, val in series.iteritems():
-                                    if vals:
-                                        # consider this condition and adjust it based on hyrdologic knowledge!
-                                        if val > 100 * (sum(vals) / len(vals)):
-                                            print 'outlier at {} of value:  {}'.format(ind, val)
-                                            print 'value among previous values of: {}'.format(vals)
-                                            series[ind] = nan
-                                            y += 1
-                                        elif val < 0.01 * (sum(vals) / len(vals)):
-                                            print 'outlier at {} of value:  {}'.format(ind, val)
-                                            print 'value among previous values of: {}'.format(vals)
-                                            series[ind] = nan
-                                            y += 1
-                                        vals = vals[1:20]
-                                        vals.append(val)
-                                        x += 1
+                            print 'Coyote Dam Out hydrograph not cleaned'
 
                     if series.name == 'Q_cfs':
                         if impose_rolling_condition:
-                            self._impose_rolling_condition(series, lambda vi, av: vi > 100 * av)
+                            self._impose_rolling_condition(series, rolling_window)
 
-                df_dict[key].update({'Dataframe': df})
+                if single_gauge:
+                    df_dict.update({key: df})
+                else:
+                    df_dict[key].update({'Dataframe': df})
 
         if save_cleaned_df:
             for key in df_dict:
                 if key != '11462125 peak':
                     df = df_dict[key]['Dataframe']
                     df.to_csv(r'{}\Clean_{}.csv'.format(save_path, key), sep=',', index_label='DateTime')
-
+        print 'cleaned df'
         return df_dict
 
     def save_cleaned_stats(self, cleaned_dataframe_dict, gauge_dict, save_path, save_cleaned_states=False):
+        pass
         """Find stats on data coverage and save to a csv
 
         :param cleaned_dataframe_dict:
@@ -225,7 +224,6 @@ class DataframeManagement:
         :return:
         """
         df_dict = cleaned_dataframe_dict
-
         for key in df_dict:
             df = df_dict[key]
             for series in df:
@@ -233,45 +231,56 @@ class DataframeManagement:
                 start = datetime.strftime(s.index[1].to_datetime(), '%Y/%m/%d %H:%M')
                 end = datetime.strftime(s.index[-1].to_datetime(), '%Y/%m/%d %H:%M')
                 percnt_cov  = count_nonzero(s)/len(s) * 100
+        # not done!
 
-    def _impose_rolling_condition(self, series, predicate):
+    def _impose_rolling_condition(self, series, rolling_window):
 
-        # x = 0
-        remove_cnt = 0
-        vals = self._value_list(series)
-        if vals:
-            for ind, val in series.iteritems():
-                # if vals:
-                # consider this condition and adjust it based on hyrdologic knowledge!
-                # if val > 100 * (sum(vals) / len(vals)):
-                vavg = sum(vals) / len(vals)
-                if predicate(val, vavg):
-                    print 'outlier at {} of value:  {}'.format(ind, val)
-                    print 'value among previous values of: {}'.format(vals)
-                    series[ind] = nan
-                    if val != nan:
-                        vals = vals[1:20]
-                        vals.append(val)
-                    remove_cnt += 1
-                    # x += 1
+        print 'rolling median'
+        threshold = series.std(skipna=True)
+        print 'std dev: {}'.format(threshold)
+        check = series.rolling(window=rolling_window, center=True).median().fillna(method='bfill').fillna(method='ffill')
+        difference = abs(series - check)
+        outlier_idx = difference > threshold
+        series[outlier_idx] = check
+        series_mean = series.mean(skipna=True)
+        print 'mean {} without outliers: {}'.format(series.name, series_mean)
+        print 'eliminated {} values from {}'.format(sum(outlier_idx), series.name)
+        print ''
 
-            series_mean = series.mean(skipna=True)
-            print 'removed {} values'.format(remove_cnt)
-            print 'mean {} without outliers: {}'.format(series.name, series_mean)
+    def find_extreme_events(self, dict_of_dataframees, gauge_key):
+        pass
+        # not done!
 
-    def _value_list(self, series):
-        vals = []
-        for ind, val in series.iteritems():
-            if series[ind] > 0:
-                vals.append(series[ind])
-            if len(vals) == 20:
-                break
-        return vals
+    def _fill_stage(self, dict_of_dataframes):
 
-    # helpful slicer snipets
-    # q_df[(q_df.index.year == 2008) & (q_df.index.month == 4) & (q_df.index.day == 7)]
-    # s =s[(s.index.year == 1998) & (s.index.month == 11) & (s.index.day > 20)]
-    # series = cln_dfs['COY - Coyote']['Q_cfs']
+        print 'attempting to fill in stage data'
+        for key, dic in dict_of_dataframes.iteritems():
+            df = dic['Dataframe']
+            try:
+                arr = dic['Rating']
+                print arr.size
+                print df
+                recs = []
+                for ind, row in df.iterrows():
+                    if isnull(row[1]) and notnull(row[0]):
+                        idx = (abs(arr[:, 2] - float(row[0]))).argmin()
+                        df.set_value(ind, 'Stage_ft', arr[idx, 0])
+                        recs.append(arr[idx, 0])
+                    else:
+                        recs.append(nan)
+                rep_stage = array(recs)
+                rep_stage = Series(rep_stage, name='Replacement Stage', index=df.index)
+                df = concat((df, rep_stage), join='outer', axis=1)
+                dict_of_dataframes[key].update({'Dataframe': df})
+                print df
+                print 'shape of dataframe: {}'.format(df.shape)
+                print 'length of replacement stage array: {}'.format(len(recs))
+            except TypeError:
+                print 'arr {} is {}'.format(key, type(arr))
+            except AttributeError:
+                print 'arr {} is {}'.format(key, type(arr))
+
+
 
 # ============= EOF =============================================
 

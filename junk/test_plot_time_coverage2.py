@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 cols = list('abcd')
-keys = list('lmnop')
+# keys = list('lmnop')
 rng = pd.date_range('1/1/2011', periods=20, freq='D')
 df_dict = {}
 yy = 0

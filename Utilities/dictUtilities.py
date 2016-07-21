@@ -15,54 +15,73 @@
 # ===============================================================================
 
 import csv
+from datetime import datetime
 
 class CSVParser:
     def __init__(self):
         pass
 
-    def csv_to_dict(self, source_path):
+    def csv_to_dict(self, source_path, type='stream_gauges'):
         """
         converts  csv file to a dictionary
 
         :param source_path:
-        :param headers:
-        :param has_header:
+        :param type:
         :return:
         """
-        print 'parsing gauges to dict'
+        print 'parsing to dict'
         delimiter = ','
-        gauges = {}
+        working_dict = {}
         result = {}
         with open(source_path, 'r') as data_file:
             data = csv.reader(data_file, delimiter=delimiter)
             headers = next(data)[1:]
             for row in data:
                 temp_dict = {}
-                name = '{} {}'.format(row[0], row[3])
                 id = row[0]
                 values = []
-                for x in row[1:]:
-                    try:
-                        values.append(str(x))
-                    except ValueError:
+                if type == 'stream_gauges':
+                    name = '{} {}'.format(row[0], row[3])
+                    for x in row[1:]:
+                        print row
                         try:
-                            values.append(int(x))
+                            values.append(str(x))
+                            print str(x)
                         except ValueError:
                             try:
-                                values.append(float(x))
+                                values.append(int(x))
+                                print int(x)
                             except ValueError:
-                                print("Skipping value '{}' that cannot be converted " +
-                                      "to a number - see following row: {}"
-                                      .format(x, delimiter.join(row)))
-                                values.append(0)
+                                try:
+                                    values.append(float(x))
+                                    print float(x)
+                                except ValueError:
+                                    print("Skipping value '{}' that cannot be converted " +
+                                          "to a number - see following row: {}"
+                                          .format(x, delimiter.join(row)))
+                                    values.append(0)
+                elif type == 'floods':
+                    name = 'Rank {}'.format(row[0])
+                    print 'name: {}'.format(name)
+                    for i, x in enumerate(row[1:]):
+                        if i == 0:
+                            values.append(datetime.strptime(x, '%m/%d/%Y'))
+                        else:
+                            values.append(int(x))
 
                 for i in range(len(values)):
                     if values[i]:
                         temp_dict[headers[i]] = values[i]
+
                 result[name] = temp_dict
-                temp_dict['Dataframe'] = None
-                temp_dict['ID'] = id
-                gauges.update({name: temp_dict})
-        return gauges
+
+                if type == 'stream_gauges':
+                    temp_dict['Dataframe'] = None
+                    temp_dict['Rating'] = None
+                    temp_dict['ID'] = id
+                elif type == 'floods':
+                    pass
+                working_dict.update({name: temp_dict})
+        return working_dict
 
 # ============= EOF =============================================
