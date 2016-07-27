@@ -36,7 +36,8 @@ set_printoptions(threshold=3000, edgeitems=500)
 set_option('display.height', 500)
 set_option('display.max_rows', 500)
 
-def gauge_clean(root, alt_dirs, gpath):
+
+def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None):
     """ Takes various types of gauge data files in .txt format and converts them to hydrographs (e.g. flow vs. time)
 
     :param alt_dirs:
@@ -53,27 +54,28 @@ def gauge_clean(root, alt_dirs, gpath):
     ppt_reader = PrecipGaugeReader()
     rating_reader = RatingCurveReader()
 
-    ppt, check = ppt_reader.read_in_precip_gauge(ppt_path, 'pottervalleypowerhouse.csv')
-
     # read in a csv with coordinates as dict with gauge numbers as keys,
     # this will be filled with gauge data below
     gauge_dict = csv_parser.csv_to_dict(gpath, type='stream_gauges')
     print gauge_dict
-
-    rating_filename = 'usgs 11462500.txt'
-    rating = rating_reader.read_gauge_rating(rating_path, rating_filename)
-    base = rating_filename.replace('usgs ', '').replace('.txt', ' 15 minute')
-    gauge_dict[base].update({'Rating': rating})
+    if rating:
+        rating_filename = 'usgs 11462500.txt'
+        rating = rating_reader.read_gauge_rating(rating, rating_filename)
+        base = rating_filename.replace('usgs ', '').replace('.txt', ' 15 minute')
+        gauge_dict[base].update({'Rating': rating})
 
     # loop through all files in dirpath, reading gauge data and appending
     # to a dict of pandas dataframes
+
     for (dirpath, dirnames, filenames) in os.walk(root):
 
         # don't read in parent dirs
-        # print 'working on {}, basename {}'.format(dirpath, os.path.basename(dirpath))
+        print''
+        print 'working on basename {}'.format(os.path.basename(dirpath))
+        print 'filenames: {}'.format(filenames)
         if os.path.basename(dirpath) in ['output', 'statistics', 'usgs 11462125', 'tables', 'uncleaned',
                                          'figures', 'stream_gages', 'extras', 'CSVs', 'code', 'older',
-                                         'precip']:
+                                         'precip', 'stream_gauges_test', 'coverage_check']:
 
             print os.path.basename(dirpath), 'left off from data collection'
 
@@ -85,7 +87,9 @@ def gauge_clean(root, alt_dirs, gpath):
         elif dirpath in alt_dirs:
             print dirpath
             base = os.path.basename(dirpath)
-            base += ' hourly'
+            if __name__ == '__main__':
+                base += ' hourly'
+            print base
             data = other_gauge_reader.read_gauge(dirpath, file_names=filenames)
             other_panels = df_generator.other_array_to_dataframe(data)
             gauge_dict[base].update({'Dataframe': other_panels})
@@ -106,14 +110,14 @@ def gauge_clean(root, alt_dirs, gpath):
     # and/or can clean using a rolling condition defined in firo_pandas_utils.py
     clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
                                                 impose_rolling_condition=True, fill_stage=True,
-                                                save_cleaned_df=False, save_path=csv_save)
+                                                save_cleaned_df=False)
 
     # plot simple time vs discharge, stage, etc
     # gauge_plotter.plot_discharge(clean_gauges, save_figure=True, save_path=fig_save)
 
     # plot a horizontal bar for each gauge's time coverage
-    gauge_plotter.plot_time_coverage_bar(clean_gauges, stage_plot=True, zone='downstream', save_figure=False,
-                                         save_path=fig_save, save_format='svg')
+    # gauge_plotter.plot_time_coverage_bar(clean_gauges, stage_plot=True, zone='downstream', save_figure=False,
+    #                                      save_path=fig_save, save_format='svg')
 
     # gauge_plotter.plot_hyd_subplots(clean_gauges)
 
@@ -124,18 +128,17 @@ def gauge_clean(root, alt_dirs, gpath):
     def data_to_shapefile(gauge_dict):
         pass
 
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     root = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages')
-    ppt_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'precipitation', 'FIRO_precip_coops', 'processed_hourly')
     rating_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'rating_curves')
-    ad = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\CLV - Cloverdale',
-          r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\COY - Coyote']
+    alt_dirs = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\CLV - Cloverdale',
+                r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\COY - Coyote']
     fig_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'extras', 'figures')
     csv_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'extras', 'CSVs')
-    alt_dirs = ad
     gpath = os.path.join(root, 'FIRO_gaugeDict.csv')
-    gauge_clean(root, ad, gpath)
+    gauge_clean(root, alt_dirs, gpath, rating_path)
 
 # ============= EOF =============================================

@@ -183,19 +183,23 @@ class DataframeManagement:
                     elif key == 'COY - Coyote hourly':
                         if series.name == 'Stage_ft':
                             print ' working on COY storage'
-                            series[series < 670.0] = nan
+                            series[series < 705.0] = nan
                             series[series == 0.0] = nan
                             if impose_rolling_condition:
                                 self._impose_rolling_condition(series, rolling_window)
 
                         elif series.name == 'Storage_acft':
                             print ' working on COY stage'
-                            series_mean = series.mean(skipna=True)
                             if impose_rolling_condition:
                                 self._impose_rolling_condition(series, rolling_window)
 
                         elif series.name == 'Qout_cfs':
                             print 'Coyote Dam Out hydrograph not cleaned'
+
+                        elif series.name == 'Q_cfs':
+                            if impose_rolling_condition:
+                                self._impose_rolling_condition(series, rolling_window)
+                            series[series > 50000.] = nan
 
                     if series.name == 'Q_cfs':
                         if impose_rolling_condition:
@@ -238,10 +242,11 @@ class DataframeManagement:
         print 'rolling median'
         threshold = series.std(skipna=True)
         print 'std dev: {}'.format(threshold)
-        check = series.rolling(window=rolling_window, center=True).median().fillna(method='bfill').fillna(method='ffill')
+        check = series.rolling(window=rolling_window,
+                               center=True).median().fillna(method='bfill').fillna(method='ffill')
         difference = abs(series - check)
         outlier_idx = difference > threshold
-        series[outlier_idx] = check
+        series[outlier_idx] = nan
         series_mean = series.mean(skipna=True)
         print 'mean {} without outliers: {}'.format(series.name, series_mean)
         print 'eliminated {} values from {}'.format(sum(outlier_idx), series.name)

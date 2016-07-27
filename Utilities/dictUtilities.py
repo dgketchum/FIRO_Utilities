@@ -43,18 +43,18 @@ class CSVParser:
                 if type == 'stream_gauges':
                     name = '{} {}'.format(row[0], row[3])
                     for x in row[1:]:
-                        print row
+                        # print row
                         try:
                             values.append(str(x))
-                            print str(x)
+                            # print str(x)
                         except ValueError:
                             try:
                                 values.append(int(x))
-                                print int(x)
+                                # print int(x)
                             except ValueError:
                                 try:
                                     values.append(float(x))
-                                    print float(x)
+                                    # print float(x)
                                 except ValueError:
                                     print("Skipping value '{}' that cannot be converted " +
                                           "to a number - see following row: {}"

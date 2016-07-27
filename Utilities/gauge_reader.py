@@ -182,7 +182,7 @@ class USGSGaugeReader(GaugeReader):
 
     def _get_base(self, root):
         base = os.path.basename(root).replace('usgs ', '')
-        if base == 'observations':
+        if base in 'observations':
             parent = os.path.abspath(os.path.join(root, os.pardir))
             freq = os.path.abspath(os.path.join(parent, os.pardir))
             freq = os.path.basename(freq)
@@ -204,8 +204,8 @@ class PrecipGaugeReader(GaugeReader):
         recs = []
         abc = []
         for i, row in enumerate(self._read_table_rows(root, ppt_file)):
-            if i < 20:
-                print row
+            # if i < 20:
+            #     print row
             if first:
                 first = False
             else:
