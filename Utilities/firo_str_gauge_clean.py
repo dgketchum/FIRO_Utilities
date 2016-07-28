@@ -111,7 +111,7 @@ def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None):
     clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
                                                 impose_rolling_condition=True, fill_stage=True,
                                                 save_cleaned_df=False)
-
+    return clean_gauges
     # plot simple time vs discharge, stage, etc
     # gauge_plotter.plot_discharge(clean_gauges, save_figure=True, save_path=fig_save)
 
@@ -125,8 +125,8 @@ def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None):
     # df_stats = df_generator.save_cleaned_stats(clean_gauges, gauge_dict, csv_save, save_cleaned_states=True)
 
     # (not done) apply data plots or stats to .shp attribute table for display in GIS or cartography
-    def data_to_shapefile(gauge_dict):
-        pass
+    # def data_to_shapefile(gauge_dict):
+    #     pass
 
 
 if __name__ == '__main__':

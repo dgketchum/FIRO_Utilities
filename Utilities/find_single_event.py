@@ -60,19 +60,19 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
     # this should eventually go into the plotting class
     def select_known_events(gauges, precip_dict, precip=True, hyeto_key='pottervalleypowerhouse',
                             save_fig=False, save_path=fig_save,
-                            date_obj=datetime(2006, 1, 1, 0, 0), buffer_days=5, save_format='.png'):
+                            date_obj=datetime(2006, 1, 1, 0, 0), buffer_days=10, save_format='.png'):
 
         def _standard_plotter(use_gauge, b_name, series, sbuffer, dtime_object):
             print 'corresponding stage hydrograph'
             plt.subplots(figsize=(30, 8))
-            s = use_gauge[b_name][series]
             name = use_gauge.keys()[0]
+            s = use_gauge[b_name]['Dataframe'][series]
             time_delta = Timedelta(days=sbuffer)
             rng = s[dtime_object - time_delta: dtime_object + time_delta]
             plt.plot(rng, 'g', label='Data')
             plt.tight_layout()
             plt.legend()
-            plt.title('Stage at {} Event Peak: {}'.format(name, datetime.strftime(dtime_object, '%Y/%m/%d')))
+            plt.title('Stage at {} Event Peak: {}'.format(use_gauge[b_name]['Name'], datetime.strftime(dtime_object, '%Y/%m/%d')))
             plt.xlabel('Date')
             plt.ylabel('[ft]')
 
@@ -91,8 +91,8 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                 ppt_s = ppt_s.apply(to_numeric)
                 ppt_s[ppt_s < 0] = 0.0
                 ppt_s = ppt_s[date_obj - Timedelta(days=buffer_days): date_obj + Timedelta(days=buffer_days)]
-                print 'ppt_s head: {}'.format(ppt_s.head(10))
-                print ''
+                # print 'ppt_s head: {}'.format(ppt_s.head(10))
+                # print ''
                 print 'ppt_s start: {}  ppt_s end: {}'.format(ppt_s.index[0], ppt_s.index[-1])
                 if len(ppt_s) != count_nonzero(isnan(ppt_s)):
                     ppt_s.iloc[0], ppt_s.iloc[-1] = 0.0, 0.0
@@ -111,10 +111,11 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                 plt.ylabel('[ft]')
                 if save_fig:
                     plt.savefig('{}\{}{}'.format(save_path, key, save_format), dpi=500)
+                    plt.close()
 
         for key, val in gauges.iteritems():
-            if key == 'COY - Coyote hourly':
-                for ser in ['Q_cfs', 'Stage_ft']:
+            for ser in ['Q_cfs', 'Stage_ft']:
+                if key == 'COY - Coyote hourly':
                     if ser == 'Q_cfs':
                         s = gauges[key]['Dataframe'][ser]
                         name = gauges.keys()[0]
@@ -125,9 +126,11 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                             fig, ax1 = plt.subplots(figsize=(30, 8))
                             ax1.plot(rng, 'k', label='Discharge [cfs]')
                             ax1.legend()
-                            plt.title('Discharge at {} Event Peak: {}'.format(name, datetime.strftime(date_obj, '%Y/%m/%d')))
+                            plt.title('Discharge at {} Event Peak: {}'.format(name, datetime.strftime(date_obj,
+                                                                                                      '%Y/%m/%d')))
                             plt.tight_layout()
-                            ppt_s = Series(array(precip_dict[hyeto_key])[:, 1], index=array(precip_dict[hyeto_key])[:, 0])
+                            ppt_s = Series(array(precip_dict[hyeto_key])[:, 1],
+                                           index=array(precip_dict[hyeto_key])[:, 0])
                             ppt_s = ppt_s.reindex(index=rng.index, method=None)
                             ppt_s = ppt_s.apply(to_numeric)
                             ppt_s[ppt_s < 0] = 0.0
@@ -160,17 +163,20 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                                                                                                       '%Y/%m/%d')))
                             plt.xlabel('Date')
                             plt.ylabel('[cfs]')
-                            plt.show()
                             if save_fig:
                                 plt.savefig('{}\{}{}'.format(save_path, ser, save_format), dpi=500)
+                                plt.close()
                     else:
                         _standard_plotter(gauges, key, ser, buffer_days, date_obj)
                         if save_fig:
                             plt.savefig('{}\{}{}'.format(save_path, ser, save_format), dpi=500)
-            else:
-                _standard_plotter(gauges, key, ser, buffer_days, date_obj)
-                if save_fig:
-                    plt.savefig('{}\{}{}'.format(save_path, ser, save_format), dpi=500)
+                            plt.close()
+                else:
+                    if ser == 'Q_cfs':
+                        _standard_plotter(gauges, key, ser, buffer_days, date_obj)
+                        if save_fig:
+                            plt.savefig('{}\{}{}'.format(save_path, gauges[key]['Name'], save_format), dpi=500)
+                            plt.close()
 
     if rank == 'all':
         for key, val in flood_dict.iteritems():
@@ -201,6 +207,6 @@ if __name__ == '__main__':
     flood_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'Events',
                               'FloodDict_Ralph_etal_2006.csv')
     gpath = os.path.join(root, 'coverage_check', 'FIRO_gaugeDict.csv')
-    clean_hydrograph_signal(root, rank='Rank 3')
+    clean_hydrograph_signal(root, rank='Rank 7')
 
 #  ==================================EOF=================================
