@@ -14,19 +14,21 @@
 # limitations under the License.
 # ===============================================================================
 
-
+import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from numpy import count_nonzero, isnan, linspace, nan
 from pandas import Series, options
 from copy import deepcopy
+
+
 # options.mode.chained_assignment = None
 
 class PlotGauges:
-
     def __init__(self):
         self._col_list = ['Q_cfs', 'Stage_ft', 'Qout_cfs', 'Storage_acft']
-        self._title_list = ['Discharge at Gauge', 'Stage at Gauge', 'Discharge from COYOTE DAM', 'Storage at COYOTE DAM']
+        self._title_list = ['Discharge at Gauge', 'Stage at Gauge', 'Discharge from COYOTE DAM',
+                            'Storage at COYOTE DAM']
         self._desc_list = ['Discharge [cfs]', 'Stage [ft]', 'Discharge [cfs]', 'Storage [af]']
         self._downstream_gauges = ['CLV - Cloverdale hourly', '11462080 daily', '11462080 15 minute',
                                    '11462500 daily', '11462500 15 minute']
@@ -37,55 +39,57 @@ class PlotGauges:
                                  '11461000 15 minute', 'COY - Coyote hourly', '11461500 15 minute',
                                  '11471000 daily']
         self._hopland = '11462500 15 minute'
-    def plot_discharge(self, data, save_path=None, save_figure=False, save_format='png'):
+
+    def plot_discharge(self, data, **kw):
         """Plot typical time vs discharge, etc hydrographs
 
         :param data: 2-tuple or 4-tuple of numpy arrays
-        :param save_path: csv save location
-        :param save_figure:
-        :param save_format
+
         :return: show and/or save hydrographs of various types (stream flow, stage, etc)
 
         """
         x = 0
-        print data
+        print 'data', data
         for key in data:
-            print key
+            print 'key', key
             if key == '11462125 peak':
                 print 'skipping peak discharge df'
             elif key == 'CLV - Cloverdale hourly':
                 for col in self._col_list[:2]:
                     ser = data[key]['Dataframe'][col]
                     if not ser.empty:
-                        self._setup_different_hydrographs(ser, col, key)
-                        if save_figure:
-                            print 'saving'
-                            plt.savefig('{}\{}_{}_hydroraph.{}'.format(save_path, key, col, save_format), dpi=500)
-                            plt.close()
+                        self._plot(col, key, ser, **kw)
 
             elif key == 'COY - Coyote hourly':
                 for col in self._col_list:
                     ser = data[key]['Dataframe'][col]
                     if not ser.empty:
-                        print '{} {} not empty'.format(key, col)
-                        self._setup_different_hydrographs(ser, col, key)
-                        if save_figure:
-                            print 'saving'
-                            plt.savefig('{}\{}_{}_hydroraph.{}'.format(save_path, key, col, save_format), dpi=500)
-                            plt.close()
+                        self._plot(col, key, ser, **kw)
             else:
                 for col in self._col_list:
                     ser = data[key]['Dataframe'][col]
                     print 'nan values: {}'.format(count_nonzero(isnan(ser)))
                     print 'len ser: {}'.format(len(ser))
                     if len(ser) != count_nonzero(isnan(ser)):
-                        print '{} {} not empty'.format(key, col)
-                        self._setup_different_hydrographs(ser, col, key)
-                        if save_figure:
-                            print 'saving'
-                            plt.savefig('{}\{}_{}_hydroraph.{}'.format(save_path, key, col, save_format), dpi=500)
-                            plt.close()
+                        self._plot(col, key, ser, **kw)
 
+    def _plot(self, col, key, ser, save_path=None, save_format='.png'):
+        """
+        :param save_path: csv save location
+        :param save_format
+        :param col:
+        :param key:
+        :param ser:
+        :return:
+        """
+        print '{} {} not empty'.format(key, col)
+        self._setup_different_hydrographs(ser, col, key)
+        if save_path:
+            print 'saving'
+            name = '{}_{}_hydroraph.{}'.format(key, col, save_format)
+            path = os.path.join(save_path, name)
+            plt.savefig(path, dpi=500)
+            plt.close()
 
     def plot_hyd_subplots(self, data, save_path=None, save_figure=False, save_format='png'):
 
@@ -134,7 +138,7 @@ class PlotGauges:
                     plt.savefig('{}\\allGauges.{}'.format(save_path, save_format), dpi=500)
                     plt.close()
 
-    def plot_time_coverage_bar(self, data, zone='all', stage_plot=True,  save_path=None, save_figure=False,
+    def plot_time_coverage_bar(self, data, zone='all', stage_plot=True, save_path=None, save_figure=False,
                                save_format='png'):
         """ Plot horizontal bar showing temporal coverage of stream gauges
 
@@ -226,8 +230,8 @@ class PlotGauges:
             plt.ylabel(self._desc_list[pos])
             plt.xlabel('Time')
 
-class PlotDataAsPoint:
 
+class PlotDataAsPoint:
     def __init__(self):
         pass
 

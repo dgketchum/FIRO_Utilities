@@ -23,10 +23,16 @@ from numpy import set_printoptions, array, count_nonzero, isnan
 from matplotlib import pyplot as plt
 from datetime import datetime
 
+
 # print options can be set long to see more array data at once
 # set_printoptions(threshold=3000, edgeitems=500)
 # set_option('display.max_rows', 500)
 
+
+# I would be very carefully here with how you are handling "scope"
+# basically what I mean is that you have functions nested inside the function clean_hydrograph_signal.
+# That's fine to do but you need to understand scope and you are mixing scopes pretty cavalierly.
+# You are also mixing clean_hydorgraph_signal's scope with the __main__ scope.
 
 def clean_hydrograph_signal(root, rank='Rank 1'):
     """Find event, gather data, organize data, clean data according to parameters set in 'gauge_data_clean.py'
@@ -43,8 +49,16 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
     ppt_dict = {}
     ppt_list = ['pottervalleypowerhouse.csv', 'lakemendocinodam.csv', 'navarro1nw.csv', 'yorkville.csv',
                 'w.howardforestrs.csv', 'cloverdale1s.csv']
+
     for ppt_gauge in ppt_list:
         print 'precip gauge {}'.format(ppt_gauge)
+
+        # here is a good example of mixing scope.
+        # tell me where is ppt_path defined.
+        # try calling clean_hydrograph_signal from another file. it will not work!
+        # Why? because ppt_path is defined in the if __name__ ==... scope
+        # Does that code get executed if you call clean_hydrograph_signal from another file?
+
         try:
             ppt, check = ppt_reader.read_in_precip_gauge(ppt_path, ppt_gauge)
         except IOError:
@@ -72,7 +86,8 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
             plt.plot(rng, 'g', label='Data')
             plt.tight_layout()
             plt.legend()
-            plt.title('Stage at {} Event Peak: {}'.format(use_gauge[b_name]['Name'], datetime.strftime(dtime_object, '%Y/%m/%d')))
+            plt.title('Stage at {} Event Peak: {}'.format(use_gauge[b_name]['Name'],
+                                                          datetime.strftime(dtime_object, '%Y/%m/%d')))
             plt.xlabel('Date')
             plt.ylabel('[ft]')
 
@@ -134,7 +149,8 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                             ppt_s = ppt_s.reindex(index=rng.index, method=None)
                             ppt_s = ppt_s.apply(to_numeric)
                             ppt_s[ppt_s < 0] = 0.0
-                            ppt_s = ppt_s[date_obj - Timedelta(days=buffer_days): date_obj + Timedelta(days=buffer_days)]
+                            ppt_s = ppt_s[
+                                    date_obj - Timedelta(days=buffer_days): date_obj + Timedelta(days=buffer_days)]
                             print ''
                             print 'ppt_s start: {}  ppt_s end: {}'.format(ppt_s.index[0], ppt_s.index[-1])
                             max_ppt = ppt_s.max()
@@ -193,9 +209,13 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
     else:
         select_known_events(gauge_dict, precip=True, precip_dict=ppt_dict, save_fig=True)
 
+
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
+
+    # make a firo_dir variable, e.g firo_dir =os.path.join(home, 'Documents', 'USACE', 'FIRO')
+
     rating_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'rating_curves')
     ppt_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'precipitation', 'FIRO_precip_coops',
                             'processed_15min')
@@ -209,4 +229,4 @@ if __name__ == '__main__':
     gpath = os.path.join(root, 'coverage_check', 'FIRO_gaugeDict.csv')
     clean_hydrograph_signal(root, rank='Rank 7')
 
-#  ==================================EOF=================================
+# ==================================EOF=================================
