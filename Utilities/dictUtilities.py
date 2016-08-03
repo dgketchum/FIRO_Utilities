@@ -17,6 +17,8 @@
 import csv
 from datetime import datetime
 
+from Utilities.gauge_reader import PrecipGaugeReader
+
 class CSVParser:
     def __init__(self):
         pass
@@ -83,5 +85,18 @@ class CSVParser:
                     pass
                 working_dict.update({name: temp_dict})
         return working_dict
+
+    def make_ppt_dict(self, ppt_path, alt_ppt_path, gauge_list):
+        ppt_reader = PrecipGaugeReader()
+        ppt_dict = {}
+        for ppt_gauge in gauge_list:
+            print 'precip gauge {}'.format(ppt_gauge)
+            try:
+                ppt, check = ppt_reader.read_in_precip_gauge(ppt_path, ppt_gauge)
+            except IOError:
+                ppt, check = ppt_reader.read_in_precip_gauge(alt_ppt_path, ppt_gauge)
+            print 'length of precip list: {}'.format(len(ppt))
+            ppt_dict.update({ppt_gauge.replace('.csv', ''): ppt})
+        return ppt_dict
 
 # ============= EOF =============================================

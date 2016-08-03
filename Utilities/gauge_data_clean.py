@@ -113,7 +113,7 @@ class DataframeManagement:
 
     def clean_dataframe(self, dict_of_dataframes, single_gauge=False, fill_stage=False, clean_beyond_three_sigma=False,
                         clean_before_three_sigma=False, impose_rolling_condition=False, rolling_window=5,
-                        save_cleaned_df=False, save_path=None):
+                        save_cleaned_df=False, save_path=None, window=None):
         """Take gauge data and clean it, removing supect vales and replacing with NaN
 
         :param dict_of_dataframes:
@@ -212,8 +212,15 @@ class DataframeManagement:
 
         if save_cleaned_df:
             for key in df_dict:
+                if window:
+                    i, j = window
+                    df_w = df_dict[key]['Dataframe']
+                    df_w = df_w[(df_w.index > i) & (df_w.index < j)]
                 if key != '11462125 peak':
-                    df = df_dict[key]['Dataframe']
+                    if window:
+                        df = df_w
+                    else:
+                        df = df_dict[key]['Dataframe']
                     df.to_csv(r'{}\Clean_{}.csv'.format(save_path, key), sep=',', index_label='DateTime')
         print 'cleaned df'
         return df_dict

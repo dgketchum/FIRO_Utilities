@@ -15,28 +15,25 @@
 # ===============================================================================
 
 import os
-from Utilities.dictUtilities import CSVParser
-from Utilities.gauge_reader import PrecipGaugeReader
-from Utilities.firo_str_gauge_clean import gauge_clean
 from pandas import set_option, Series, Timedelta, to_numeric
 from numpy import set_printoptions, array, count_nonzero, isnan
 from matplotlib import pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from Utilities.dictUtilities import CSVParser
+from Utilities.firo_str_gauge_clean import gauge_clean
 
 
 # print options can be set long to see more array data at once
 # set_printoptions(threshold=3000, edgeitems=500)
 # set_option('display.max_rows', 500)
 
+ppt_list = ['pottervalleypowerhouse.csv', 'lakemendocinodam.csv', 'navarro1nw.csv']
 
-# I would be very carefully here with how you are handling "scope"
-# basically what I mean is that you have functions nested inside the function clean_hydrograph_signal.
-# That's fine to do but you need to understand scope and you are mixing scopes pretty cavalierly.
-# You are also mixing clean_hydorgraph_signal's scope with the __main__ scope.
 
-def clean_hydrograph_signal(root, rank='Rank 1'):
+def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None):
     """Find event, gather data, organize data, clean data according to parameters set in 'gauge_data_clean.py'
-    present hydrograph.
+    present hydrograph. Requires a csv at level of gauge folders with all guage names.
 
     :param root:
     :param rank:
@@ -44,42 +41,28 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
     """
 
     csv_parser = CSVParser()
-    ppt_reader = PrecipGaugeReader()
+    ppt_dict = csv_parser.make_ppt_dict(ppt_path, alt_ppt_path, ppt_list)
 
-    ppt_dict = {}
-    ppt_list = ['pottervalleypowerhouse.csv', 'lakemendocinodam.csv', 'navarro1nw.csv', 'yorkville.csv',
-                'w.howardforestrs.csv', 'cloverdale1s.csv']
+    if rank:
+        flood_dict = csv_parser.csv_to_dict(flood_path, type='floods')
+        print 'Floods: {}'.format(flood_dict)
 
-    for ppt_gauge in ppt_list:
-        print 'precip gauge {}'.format(ppt_gauge)
-
-        # here is a good example of mixing scope.
-        # tell me where is ppt_path defined.
-        # try calling clean_hydrograph_signal from another file. it will not work!
-        # Why? because ppt_path is defined in the if __name__ ==... scope
-        # Does that code get executed if you call clean_hydrograph_signal from another file?
-
-        try:
-            ppt, check = ppt_reader.read_in_precip_gauge(ppt_path, ppt_gauge)
-        except IOError:
-            ppt, check = ppt_reader.read_in_precip_gauge(alt_ppt_path, ppt_gauge)
-        print 'length of precip list: {}'.format(len(ppt))
-        ppt_dict.update({ppt_gauge.replace('.csv', ''): ppt})
-
-    flood_dict = csv_parser.csv_to_dict(flood_path, type='floods')
-    print 'Floods: {}'.format(flood_dict)
-
-    gauge_dict = gauge_clean(root, alt_dirs, gpath)
+    gauge_dict = gauge_clean(root, alt_dirs, gpath, save_path=fig_save, window=time_window)
 
     # this should eventually go into the plotting class
-    def select_known_events(gauges, precip_dict, precip=True, hyeto_key='pottervalleypowerhouse',
-                            save_fig=False, save_path=fig_save,
-                            date_obj=datetime(2006, 1, 1, 0, 0), buffer_days=10, save_format='.png'):
+    def display_event(gauges, precip_dict, precip=True, hyeto_key='pottervalleypowerhouse',
+                      save_fig=False, save_path=fig_save, date_range=None,
+                      date_obj=None, buffer_days=10, save_format='.png'):
+
+        if date_range:
+            i, j = date_range
+            buf = j - i
+            buffer_days = buf.days
+            date_obj = i + timedelta(days=buffer_days/2)
 
         def _standard_plotter(use_gauge, b_name, series, sbuffer, dtime_object):
             print 'corresponding stage hydrograph'
             plt.subplots(figsize=(30, 8))
-            name = use_gauge.keys()[0]
             s = use_gauge[b_name]['Dataframe'][series]
             time_delta = Timedelta(days=sbuffer)
             rng = s[dtime_object - time_delta: dtime_object + time_delta]
@@ -127,13 +110,12 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                 if save_fig:
                     plt.savefig('{}\{}{}'.format(save_path, key, save_format), dpi=500)
                     plt.close()
-
         for key, val in gauges.iteritems():
             for ser in ['Q_cfs', 'Stage_ft']:
                 if key == 'COY - Coyote hourly':
                     if ser == 'Q_cfs':
                         s = gauges[key]['Dataframe'][ser]
-                        name = gauges.keys()[0]
+                        name = gauges[key]['Name']
                         time_delta = Timedelta(days=buffer_days)
                         rng = s[date_obj - time_delta: date_obj + time_delta]
                         if precip:
@@ -168,7 +150,8 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                                 tl.set_color('b')
                             ax2.legend()
                             if save_fig:
-                                plt.savefig('{}\{}{}'.format(save_path, ser, save_format), dpi=500)
+                                plt.savefig('{}\{}_hanging{}'.format(save_path, ser, save_format), dpi=500)
+
                         if not precip:
                             print 'not precip_hyeto'
                             plt.plot(rng)
@@ -200,33 +183,27 @@ def clean_hydrograph_signal(root, rank='Rank 1'):
                                                                                  int(val['Peak Flow [cms]'] * 35.3147))
             date = val['Date']
             print 'date: {}'.format(date)
-            select_known_events(gauge_dict, precip=True, precip_dict=ppt_dict, date_obj=date, save_fig=True)
+            display_event(gauge_dict, precip=True, precip_dict=ppt_dict, date_obj=date, save_fig=True)
     elif rank:
         print rank
         date = flood_dict[rank]['Date']
         print 'date {}'.format(date)
-        select_known_events(gauge_dict, precip=True, precip_dict=ppt_dict, date_obj=date, save_fig=True)
-    else:
-        select_known_events(gauge_dict, precip=True, precip_dict=ppt_dict, save_fig=True)
-
+        display_event(gauge_dict, precip=True, precip_dict=ppt_dict, date_obj=date, save_fig=True)
+    if time_window:
+        display_event(gauge_dict, precip=True, precip_dict=ppt_dict, date_range=time_window, save_fig=True)
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-
-    # make a firo_dir variable, e.g firo_dir =os.path.join(home, 'Documents', 'USACE', 'FIRO')
-
-    rating_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'rating_curves')
-    ppt_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'precipitation', 'FIRO_precip_coops',
-                            'processed_15min')
-    alt_ppt_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'precipitation', 'FIRO_precip_coops',
-                                'processed_hourly')
+    firo_dir = os.path.join(home, 'Documents', 'USACE', 'FIRO')
+    ppt_path = os.path.join(firo_dir, 'precipitation', 'FIRO_precip_coops', 'processed_15min')
+    alt_ppt_path = os.path.join(firo_dir, 'precipitation', 'FIRO_precip_coops', 'processed_hourly')
+    rating_path = os.path.join(firo_dir, 'rating_curves')
     alt_dirs = [r'C:\Users\David\Documents\USACE\FIRO\stream_gauges_test\coverage_check\hourly\COY - Coyote hourly']
-    fig_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'meeting_26JUL16')
-    root = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gauges_test')
-    flood_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'Events',
-                              'FloodDict_Ralph_etal_2006.csv')
+    fig_save = os.path.join(firo_dir, 'meeting_2AUG16', '2008-01-01_2008-03-05')
+    root = os.path.join(firo_dir, 'stream_gauges_test')
+    flood_path = os.path.join(firo_dir, 'Events', 'FloodDict_Ralph_etal_2006.csv')
     gpath = os.path.join(root, 'coverage_check', 'FIRO_gaugeDict.csv')
-    clean_hydrograph_signal(root, rank='Rank 7')
+    find_event(root, time_window=(datetime(2008, 01, 01), datetime(2008, 03, 05)))
 
 # ==================================EOF=================================

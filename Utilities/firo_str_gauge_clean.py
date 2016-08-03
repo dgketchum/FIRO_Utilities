@@ -37,7 +37,7 @@ set_option('display.height', 500)
 set_option('display.max_rows', 500)
 
 
-def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None):
+def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None, save_path=None, window=None):
     """ Takes various types of gauge data files in .txt format and converts them to hydrographs (e.g. flow vs. time)
 
     :param alt_dirs:
@@ -108,9 +108,13 @@ def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None):
     # clean the data of erroneous values
     # can be set to clean less than and/or greater than 3-sigma
     # and/or can clean using a rolling condition defined in firo_pandas_utils.py
-    clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
-                                                impose_rolling_condition=True, fill_stage=True,
-                                                save_cleaned_df=False)
+    if window:
+        clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
+                                                    impose_rolling_condition=True, fill_stage=True,
+                                                    save_cleaned_df=True, save_path=save_path, window=window)
+    else:
+        clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
+                                                    impose_rolling_condition=True, fill_stage=True)
     return clean_gauges
     # plot simple time vs discharge, stage, etc
     # gauge_plotter.plot_discharge(clean_gauges, save_figure=True, save_path=fig_save)
@@ -136,7 +140,7 @@ if __name__ == '__main__':
     rating_path = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'rating_curves')
     alt_dirs = [r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\CLV - Cloverdale',
                 r'C:\Users\David\Documents\USACE\FIRO\stream_gages\hourly\COY - Coyote']
-    fig_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'extras', 'figures')
+    fig_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'meeting_2AUG16', '2001-01-20_2001-03-15')
     csv_save = os.path.join(home, 'Documents', 'USACE', 'FIRO', 'stream_gages', 'extras', 'CSVs')
     gpath = os.path.join(root, 'FIRO_gaugeDict.csv')
     gauge_clean(root, alt_dirs, gpath, rating_path)
