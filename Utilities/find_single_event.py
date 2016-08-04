@@ -30,8 +30,19 @@ from Utilities.firo_str_gauge_clean import gauge_clean
 
 ppt_list = ['pottervalleypowerhouse.csv', 'lakemendocinodam.csv', 'navarro1nw.csv']
 
+ts_obs_gauges = (['11471105 daily', '11471106 daily', '11471099 daily', 'COY - Coyote hourly'],
+                 ['COY - Coyote hourly', '11462500 15 minute', '11462080 15 minute', '11461000 15 minute'])
 
-def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None):
+if __name__ != '__main__':
+    pass
+    # root
+    # flood_path
+    # alt_dirs
+    # gpath
+    # fig_save
+
+
+def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None, time_series_obs_tup=None):
     """Find event, gather data, organize data, clean data according to parameters set in 'gauge_data_clean.py'
     present hydrograph. Requires a csv at level of gauge folders with all guage names.
 
@@ -44,10 +55,11 @@ def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None)
     ppt_dict = csv_parser.make_ppt_dict(ppt_path, alt_ppt_path, ppt_list)
 
     if rank:
-        flood_dict = csv_parser.csv_to_dict(flood_path, type='floods')
+        flood_dict = csv_parser.csv_to_dict(flood_path, type_='floods')
         print 'Floods: {}'.format(flood_dict)
 
-    gauge_dict = gauge_clean(root, alt_dirs, gpath, save_path=fig_save, window=time_window)
+    gauge_dict = gauge_clean(root, alt_dirs, gpath, save_path=fig_save, window=time_window,
+                             time_series_ob_tup=ts_obs_gauges)
 
     # this should eventually go into the plotting class
     def display_event(gauges, precip_dict, precip=True, hyeto_key='pottervalleypowerhouse',
@@ -69,10 +81,16 @@ def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None)
             plt.plot(rng, 'g', label='Data')
             plt.tight_layout()
             plt.legend()
-            plt.title('Stage at {} Event Peak: {}'.format(use_gauge[b_name]['Name'],
-                                                          datetime.strftime(dtime_object, '%Y/%m/%d')))
+            if ser == 'Stage_ft':
+                plt.title('Stage at {} Event Peak: {}'.format(use_gauge[b_name]['Name'],
+                                                              datetime.strftime(dtime_object, '%Y/%m/%d')))
+                plt.ylabel('[ft]')
+            elif ser == 'Qout_cfs':
+                plt.title('Outlet Discharge at {} Event Peak: {}'.format(use_gauge[b_name]['Name'],
+                                                              datetime.strftime(dtime_object, '%Y/%m/%d')))
+                plt.ylabel('[cfs]')
             plt.xlabel('Date')
-            plt.ylabel('[ft]')
+
 
         for key, val in precip_dict.iteritems():
             if key != hyeto_key:
@@ -111,7 +129,7 @@ def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None)
                     plt.savefig('{}\{}{}'.format(save_path, key, save_format), dpi=500)
                     plt.close()
         for key, val in gauges.iteritems():
-            for ser in ['Q_cfs', 'Stage_ft']:
+            for ser in ['Q_cfs', 'Stage_ft', 'Qout_cfs']:
                 if key == 'COY - Coyote hourly':
                     if ser == 'Q_cfs':
                         s = gauges[key]['Dataframe'][ser]
@@ -150,7 +168,7 @@ def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None)
                                 tl.set_color('b')
                             ax2.legend()
                             if save_fig:
-                                plt.savefig('{}\{}_hanging{}'.format(save_path, ser, save_format), dpi=500)
+                                plt.savefig('{}\{}_COY_hanging{}'.format(save_path, gauges[key]['Name'], save_format), dpi=500)
 
                         if not precip:
                             print 'not precip_hyeto'
@@ -163,18 +181,18 @@ def find_event(root, window=None, rank=None, all_by_bin=False, time_window=None)
                             plt.xlabel('Date')
                             plt.ylabel('[cfs]')
                             if save_fig:
-                                plt.savefig('{}\{}{}'.format(save_path, ser, save_format), dpi=500)
+                                plt.savefig('{}\{}{}'.format(save_path, gauges[key]['Name'], save_format), dpi=500)
                                 plt.close()
                     else:
                         _standard_plotter(gauges, key, ser, buffer_days, date_obj)
                         if save_fig:
-                            plt.savefig('{}\{}{}'.format(save_path, ser, save_format), dpi=500)
+                            plt.savefig('{}\{}_{}{}'.format(save_path, gauges[key]['Name'], ser, save_format), dpi=500)
                             plt.close()
                 else:
                     if ser == 'Q_cfs':
                         _standard_plotter(gauges, key, ser, buffer_days, date_obj)
                         if save_fig:
-                            plt.savefig('{}\{}{}'.format(save_path, gauges[key]['Name'], save_format), dpi=500)
+                            plt.savefig('{}\{}_{}{}'.format(save_path, gauges[key]['Name'], ser, save_format), dpi=500)
                             plt.close()
 
     if rank == 'all':
@@ -200,10 +218,11 @@ if __name__ == '__main__':
     alt_ppt_path = os.path.join(firo_dir, 'precipitation', 'FIRO_precip_coops', 'processed_hourly')
     rating_path = os.path.join(firo_dir, 'rating_curves')
     alt_dirs = [r'C:\Users\David\Documents\USACE\FIRO\stream_gauges_test\coverage_check\hourly\COY - Coyote hourly']
-    fig_save = os.path.join(firo_dir, 'meeting_2AUG16', '2008-01-01_2008-03-05')
+    fig_save = os.path.join(firo_dir, 'meeting_2AUG16', '2005-12-29_2006-01-01')
     root = os.path.join(firo_dir, 'stream_gauges_test')
     flood_path = os.path.join(firo_dir, 'Events', 'FloodDict_Ralph_etal_2006.csv')
     gpath = os.path.join(root, 'coverage_check', 'FIRO_gaugeDict.csv')
-    find_event(root, time_window=(datetime(2008, 01, 01), datetime(2008, 03, 05)))
+    find_event(root, time_window=(datetime(2005, 12, 29), datetime(2006, 01, 01)),
+               time_series_obs_tup=ts_obs_gauges)
 
 # ==================================EOF=================================

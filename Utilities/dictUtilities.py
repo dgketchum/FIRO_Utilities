@@ -19,16 +19,17 @@ from datetime import datetime
 
 from Utilities.gauge_reader import PrecipGaugeReader
 
+
 class CSVParser:
     def __init__(self):
         pass
 
-    def csv_to_dict(self, source_path, type='stream_gauges'):
+    def csv_to_dict(self, source_path, type_='stream_gauges'):
         """
         converts  csv file to a dictionary
 
         :param source_path:
-        :param type:
+        :param type_:
         :return:
         """
         print 'parsing to dict'
@@ -42,7 +43,7 @@ class CSVParser:
                 temp_dict = {}
                 id = row[0]
                 values = []
-                if type == 'stream_gauges':
+                if type_ == 'stream_gauges':
                     name = '{} {}'.format(row[0], row[3])
                     for x in row[1:]:
                         # print row
@@ -62,7 +63,7 @@ class CSVParser:
                                           "to a number - see following row: {}"
                                           .format(x, delimiter.join(row)))
                                     values.append(0)
-                elif type == 'floods':
+                elif type_ == 'floods':
                     name = 'Rank {}'.format(row[0])
                     print 'name: {}'.format(name)
                     for i, x in enumerate(row[1:]):
@@ -77,11 +78,11 @@ class CSVParser:
 
                 result[name] = temp_dict
 
-                if type == 'stream_gauges':
+                if type_ == 'stream_gauges':
                     temp_dict['Dataframe'] = None
                     temp_dict['Rating'] = None
                     temp_dict['ID'] = id
-                elif type == 'floods':
+                elif type_ == 'floods':
                     pass
                 working_dict.update({name: temp_dict})
         return working_dict

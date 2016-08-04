@@ -37,7 +37,8 @@ set_option('display.height', 500)
 set_option('display.max_rows', 500)
 
 
-def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None, save_path=None, window=None):
+def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None, save_path=None, window=None,
+                time_series_ob_tup=None):
     """ Takes various types of gauge data files in .txt format and converts them to hydrographs (e.g. flow vs. time)
 
     :param alt_dirs:
@@ -56,7 +57,7 @@ def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None, save_path=
 
     # read in a csv with coordinates as dict with gauge numbers as keys,
     # this will be filled with gauge data below
-    gauge_dict = csv_parser.csv_to_dict(gpath, type='stream_gauges')
+    gauge_dict = csv_parser.csv_to_dict(gpath, type_='stream_gauges')
     print gauge_dict
     if rating:
         rating_filename = 'usgs 11462500.txt'
@@ -103,6 +104,7 @@ def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None, save_path=
 
             # put lists of data into dataframes
             new_df = df_generator.usgs_array_to_dataframe(recs, base)
+            # remember the dict csv needs to match the files in dirpaths!!
             gauge_dict[base].update({'Dataframe': new_df})
 
     # clean the data of erroneous values
@@ -111,7 +113,8 @@ def gauge_clean(root, alt_dirs, gpath, rating=None, list_gauges=None, save_path=
     if window:
         clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
                                                     impose_rolling_condition=True, fill_stage=True,
-                                                    save_cleaned_df=True, save_path=save_path, window=window)
+                                                    save_cleaned_df=True, save_path=save_path, window=window,
+                                                    input_calib_gauge_tup=time_series_ob_tup)
     else:
         clean_gauges = df_generator.clean_dataframe(gauge_dict, clean_before_three_sigma=False,
                                                     impose_rolling_condition=True, fill_stage=True)

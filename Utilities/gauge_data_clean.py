@@ -14,9 +14,10 @@
 # limitations under the License.
 # ===============================================================================
 
-from pandas import Series, concat, DataFrame, to_numeric, isnull, notnull, rolling_median
-from numpy import array, column_stack, nan, count_nonzero, argmin, abs
+from pandas import Series, concat, DataFrame, to_numeric, isnull, notnull, rolling_median, to_datetime
+from numpy import array, column_stack, nan, count_nonzero, argmin, abs, savetxt
 from datetime import datetime
+import os
 
 
 class DataframeManagement:
@@ -113,7 +114,7 @@ class DataframeManagement:
 
     def clean_dataframe(self, dict_of_dataframes, single_gauge=False, fill_stage=False, clean_beyond_three_sigma=False,
                         clean_before_three_sigma=False, impose_rolling_condition=False, rolling_window=5,
-                        save_cleaned_df=False, save_path=None, window=None):
+                        save_cleaned_df=False, save_path=None, window=None, input_calib_gauge_tup=None):
         """Take gauge data and clean it, removing supect vales and replacing with NaN
 
         :param dict_of_dataframes:
@@ -212,18 +213,75 @@ class DataframeManagement:
 
         if save_cleaned_df:
             for key in df_dict:
+                print 'saving key {}'.format(key)
                 if window:
                     i, j = window
-                    df_w = df_dict[key]['Dataframe']
-                    df_w = df_w[(df_w.index > i) & (df_w.index < j)]
-                if key != '11462125 peak':
-                    if window:
-                        df = df_w
+                    if key == '11462080 15 minute':
+                        pass
+                    elif key == 'COY - Coyote hourly':
+                        for element in ['Q_cfs', 'Stage_ft', 'Qout_cfs']:
+                            df_w = df_dict[key]['Dataframe'][element]
+                            if element == 'Q_cfs':
+                                element = 'Q_cms'
+                                df_w = df_w[(df_w.index > i) & (df_w.index < j)]
+                                print 'series is {} starts on {} ends on {}'.format(df_dict[key]['Name'], df_w.index[0],
+                                                                                    df_w.index[-1])
+                                ind = to_datetime(df_w.index)
+                                df_w = array(df_w, dtype=float) * 0.023168
+                            elif element == 'Stage_ft':
+                                element = 'Stage_m'
+                                df_w = df_w[(df_w.index > i) & (df_w.index < j)]
+                                print 'series is {} starts on {} ends on {}'.format(df_dict[key]['Name'], df_w.index[0],
+                                                                                    df_w.index[-1])
+                                ind = to_datetime(df_w.index)
+                                df_w = array(df_w, dtype=float) * 0.3048
+                            elif element == 'Qout_cfs':
+                                element = 'Qout_cms'
+                                df_w = df_w[(df_w.index > i) & (df_w.index < j)]
+                                print 'series is {} starts on {} ends on {}'.format(df_dict[key]['Name'], df_w.index[0],
+                                                                                    df_w.index[-1])
+                                ind = to_datetime(df_w.index)
+                                df_w = array(df_w, dtype=float) * 0.023168
+
+                            self._save_gauge_format(df_w, key, ind, input_calib_gauge_tup, save_path, type_=element)
                     else:
-                        df = df_dict[key]['Dataframe']
+                        df_w = df_dict[key]['Dataframe']['Q_cfs']
+                        print 'series is {} starts on {} ends on {}'.format(df_dict[key]['Name'], df_w.index[0],
+                                                                            df_w.index[-1])
+                        df_w = df_w[(df_w.index > i) & (df_w.index < j)]
+                        ind = to_datetime(df_w.index)
+                        df_w = array(df_w, dtype=float) * 0.0283168
+                        self._save_gauge_format(df_w, key, ind, input_calib_gauge_tup, save_path, type_='Q_cms')
+
+                elif key != '11462125 peak':
+                    df = df_dict[key]['Dataframe']
                     df.to_csv(r'{}\Clean_{}.csv'.format(save_path, key), sep=',', index_label='DateTime')
+
         print 'cleaned df'
         return df_dict
+
+    def _save_gauge_format(self, dataframe, key, index, input_ts_obs_tuple, save_to, type_='cms'):
+        time_ser_gauge, obs_gauge = input_ts_obs_tuple
+
+        if key in obs_gauge:
+
+            obs_str = array(['obs_flows' for x in range(0, len(dataframe))])
+            obs_datetime = index.strftime('%Y/%m/%d    %H:%M:%S')
+            obs_datetime = array(obs_datetime, dtype=object)
+            recs = column_stack((obs_str, obs_datetime, dataframe))
+            fmt = '\t'.join(['%s'] + ['%s'] + ['%10.6f'])
+            with open('{}\\{}_{}_obs_data.txt'.format(save_to, key, type_), 'wb') as f:
+                # f.write('{}{}{}{}'.format(str_1, os.linesep, str_2, os.linesep))
+                savetxt(f, recs, fmt=fmt, delimiter='\t', newline=os.linesep)
+
+        if key in time_ser_gauge:
+            time_ser_datetime = index.strftime('%Y %m %d %H %M')
+            time_ser_datetime = array(time_ser_datetime, dtype=object)
+            recs = column_stack((time_ser_datetime, dataframe))
+            fmt = ' '.join(['%s'] + ['%10.6f'])
+            with open('{}\\{}_{}_time_series_input.txt'.format(save_to, key, type_), 'wb') as f:
+                # f.write('{}{}{}{}'.format(str_1, os.linesep, str_2, os.linesep))
+                savetxt(f, recs, fmt=fmt, delimiter=' ', newline=os.linesep)
 
     def save_cleaned_stats(self, cleaned_dataframe_dict, gauge_dict, save_path, save_cleaned_states=False):
         pass
